@@ -1,0 +1,19 @@
+task:
+  name: "demo-titanic"
+  type: "binary"
+  data_path: "data/titanic_train.csv"
+  target_column: "Survived"
+  eval_metric: "roc_auc"
+  description: "Predict passenger survival on the Titanic. Binary classification."
+  constraints:
+    max_time_per_run: 120
+    forbidden_models: []
+
+llm:
+  provider: "anthropic"
+  model: "claude-sonnet-4-6"
+  temperature: 0.3
+
+session:
+  case_store_path: "experiments/case_bank.jsonl"
+  experiments_dir: "experiments"
