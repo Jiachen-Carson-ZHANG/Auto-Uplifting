@@ -54,3 +54,48 @@ def test_anthropic_backend_passes_system_message():
     # system message must NOT be in the messages list passed to API
     api_messages = call_kwargs["messages"]
     assert all(m["role"] != "system" for m in api_messages)
+
+
+from src.llm.providers.openai import OpenAIBackend
+
+
+def test_create_backend_openai():
+    mock_openai = MagicMock()
+    mock_openai.OpenAI.return_value = MagicMock()
+    with patch.dict("sys.modules", {"openai": mock_openai}):
+        backend = create_backend(provider="openai", model="gpt-4o", api_key="test-key")
+    assert isinstance(backend, OpenAIBackend)
+
+
+def test_openai_backend_complete():
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "openai response"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    backend = OpenAIBackend(model="gpt-4o", client=mock_client)
+    messages = [Message(role="user", content="hello")]
+    result = backend.complete(messages=messages, temperature=0.5)
+
+    assert result == "openai response"
+    mock_client.chat.completions.create.assert_called_once()
+
+
+def test_openai_backend_passes_all_messages():
+    """OpenAI API accepts system messages in the messages list (unlike Anthropic)."""
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "ok"
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    backend = OpenAIBackend(model="gpt-4o", client=mock_client)
+    messages = [
+        Message(role="system", content="You are helpful."),
+        Message(role="user", content="hello")
+    ]
+    backend.complete(messages=messages)
+
+    call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+    api_messages = call_kwargs["messages"]
+    # System message IS in messages list for OpenAI (unlike Anthropic)
+    assert any(m["role"] == "system" for m in api_messages)
