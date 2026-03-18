@@ -58,6 +58,22 @@ def test_ideate_respects_num_hypotheses():
     hypotheses = agent.ideate(task=_task(), data_profile=_profile(), similar_cases=[])
     assert len(hypotheses) == 3
 
+    # verify the number was passed into the prompt
+    call_args = mock_llm.complete.call_args
+    messages = call_args.kwargs.get("messages") or call_args.args[0]
+    user_content = next(m.content for m in messages if m.role == "user")
+    assert "3" in user_content
+
+
+def test_ideate_raises_on_invalid_json():
+    import json
+    mock_llm = MagicMock()
+    mock_llm.complete.return_value = "not valid json"
+
+    agent = IdeatorAgent(llm=mock_llm)
+    with pytest.raises(json.JSONDecodeError):
+        agent.ideate(task=_task(), data_profile=_profile(), similar_cases=[])
+
 
 def test_ideate_includes_similar_cases_in_message():
     """When similar_cases provided, the user message must reference them."""
