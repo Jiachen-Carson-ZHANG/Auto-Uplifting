@@ -10,8 +10,8 @@ task:
     forbidden_models: []
 
 llm:
-  provider: "anthropic"
-  model: "claude-sonnet-4-6"
+  provider: "openai"
+  model: "gpt-4o"
   temperature: 0.3
 
 session:

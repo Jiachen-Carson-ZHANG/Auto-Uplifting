@@ -1,6 +1,20 @@
 from __future__ import annotations
+import json
 from typing import Any
 from src.models.results import RunResult, ModelEntry
+
+
+def _to_json_safe(obj: Any) -> Any:
+    """Recursively convert an object to JSON-serializable primitives."""
+    try:
+        json.dumps(obj)
+        return obj
+    except (TypeError, ValueError):
+        if isinstance(obj, dict):
+            return {str(k): _to_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_to_json_safe(i) for i in obj]
+        return str(obj)
 
 
 class ResultParser:
@@ -37,7 +51,7 @@ class ResultParser:
             fit_time_seconds=fit_time,
             artifacts_dir=artifacts_dir,
             error=None,
-            raw_info=predictor.info() if hasattr(predictor, "info") else {},
+            raw_info=_to_json_safe(predictor.info()) if hasattr(predictor, "info") else {},
         )
 
     @staticmethod
