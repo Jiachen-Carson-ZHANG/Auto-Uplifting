@@ -1,7 +1,10 @@
 from __future__ import annotations
 import json
+import logging
 from typing import Any
 from src.models.results import RunResult, ModelEntry
+
+logger = logging.getLogger(__name__)
 
 
 def _to_json_safe(obj: Any) -> Any:
@@ -49,7 +52,8 @@ class ResultParser:
                     stack_level=getattr(row, "stack_level", 1),
                     score_train=getattr(row, "score_train", None),
                 ))
-        except Exception:
+        except Exception as e:
+            logger.warning("leaderboard(extra_info=True) failed, falling back to basic leaderboard: %s", e)
             try:
                 lb = predictor.leaderboard()
                 for row in lb.itertuples():

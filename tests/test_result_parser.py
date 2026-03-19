@@ -31,7 +31,22 @@ def test_overfitting_gap_computed():
 
 
 def test_overfitting_gap_none_when_extra_info_fails():
-    predictor = _make_predictor([0.87, 0.85], [0.95, 0.93])
-    predictor.leaderboard.side_effect = Exception("no extra info")
-    result = ResultParser.from_predictor(predictor, "run_0001", 10.0, "/tmp", 0.87)
+    """extra_info=True fails → fallback to basic leaderboard → gap is None but entries populated."""
+    lb_basic = pd.DataFrame({
+        "model": ["WeightedEnsemble_L2"],
+        "score_val": [0.87],
+        "fit_time": [10.0],
+        "pred_time": [0.1],
+        "stack_level": [2],
+    })
+    p = MagicMock()
+    p.model_best = "WeightedEnsemble_L2"
+    def leaderboard_side_effect(extra_info=False):
+        if extra_info:
+            raise ValueError("extra_info not supported")
+        return lb_basic
+    p.leaderboard.side_effect = leaderboard_side_effect
+    result = ResultParser.from_predictor(p, "run_0001", 10.0, "/tmp", 0.87)
     assert result.diagnostics_overfitting_gap is None
+    assert len(result.leaderboard) == 1          # basic leaderboard still works
+    assert result.leaderboard[0].score_train is None  # no train score in fallback
