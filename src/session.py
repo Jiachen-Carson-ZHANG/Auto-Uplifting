@@ -18,6 +18,7 @@ from src.orchestration.scheduler import Scheduler
 from src.orchestration.accept_reject import AcceptReject
 from src.agents.manager import ExperimentManager, ActionType
 from src.agents.selector import SelectorAgent
+from src.agents.refiner import RefinerAgent
 from src.execution.config_mapper import ConfigMapper
 from src.execution.autogluon_runner import AutoGluonRunner
 from src.execution.result_parser import ResultParser
@@ -77,6 +78,7 @@ class ExperimentSession:
         self._accept_reject = AcceptReject(higher_is_better=higher_is_better)
         self._manager = ExperimentManager(llm=llm)
         self._selector = SelectorAgent(llm=llm)
+        self._refiner = RefinerAgent(llm=llm)
         self._runner = AutoGluonRunner(target_column=task.target_column)
         self._case_store = CaseStore(case_store_path) if case_store_path else None
         self._retriever = CaseRetriever()
@@ -314,15 +316,10 @@ class ExperimentSession:
                 self._log.info("Manager says STOP: %s", action.reason)
                 break
 
-            # Use selector to propose refinement (refiner agent added in Phase 3)
-            plan = self._selector.select(
-                hypothesis=(
-                    f"Refine the current best config (metric={incumbent.primary_metric():.4f}). "
-                    f"Try ONE improvement: consider changing validation strategy, "
-                    f"model families, or increasing time budget."
-                ),
+            incumbent_entry = self.run_store.get_incumbent(self._higher_is_better)
+            plan = self._refiner.refine(
+                incumbent=incumbent_entry,
                 task=self.task,
-                data_profile=data_profile,
                 prior_runs=self.run_store.get_history(),
             )
 
