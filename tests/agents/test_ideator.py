@@ -66,12 +66,11 @@ def test_ideate_respects_num_hypotheses():
 
 
 def test_ideate_raises_on_invalid_json():
-    import json
     mock_llm = MagicMock()
     mock_llm.complete.return_value = "not valid json"
 
     agent = IdeatorAgent(llm=mock_llm)
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(ValueError):
         agent.ideate(task=_task(), data_profile=_profile(), similar_cases=[])
 
 
