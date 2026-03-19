@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
-from src.models.task import RunConfig
+from src.models.task import RunConfig, ExperimentPlan
 
 
 class ModelEntry(BaseModel):
@@ -55,5 +55,6 @@ class RunEntry(BaseModel):
     config: RunConfig
     result: RunResult
     diagnostics: RunDiagnostics = Field(default_factory=RunDiagnostics)
+    plan: Optional[ExperimentPlan] = None
     agent_rationale: str = ""
     agent_review: str = ""
