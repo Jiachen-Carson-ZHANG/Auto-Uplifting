@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 import os
 import uuid
@@ -84,6 +85,26 @@ class ExperimentSession:
         self._ideator = IdeatorAgent(llm=llm, num_hypotheses=num_candidates)
         self._run_counter = 0
 
+        # Write session manifest — frozen snapshot of all controllable config
+        manifest = {
+            "session_name": session_name,
+            "started_at": datetime.now().isoformat(),
+            "task": task.model_dump(),
+            "search": {
+                "num_candidates": num_candidates,
+                "max_optimize_iterations": max_optimize_iterations,
+                "higher_is_better": higher_is_better,
+            },
+            "llm": {
+                "provider": getattr(llm, "provider", type(llm).__name__),
+                "model": getattr(llm, "model", "unknown"),
+            },
+            "case_store_path": case_store_path,
+        }
+        (self._session_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, default=str)
+        )
+
     def profile_data(self) -> DataProfile:
         """Build a DataProfile from the task's dataset."""
         df = pd.read_csv(self.task.data_path)
@@ -149,6 +170,18 @@ class ExperimentSession:
             node_id=node.node_id,
             data_path=self.task.data_path,
             output_dir=run_dir,
+        )
+
+        # Write per-run config snapshot — full autogluon kwargs + agent's ExperimentPlan
+        Path(run_dir).mkdir(parents=True, exist_ok=True)
+        run_config_snapshot = {
+            "run_id": run_id,
+            "node_id": node.node_id,
+            "autogluon_kwargs": config.autogluon_kwargs,
+            "experiment_plan": node.plan.model_dump(),
+        }
+        (Path(run_dir) / "run_config.json").write_text(
+            json.dumps(run_config_snapshot, indent=2, default=str)
         )
 
         # Update node status to running

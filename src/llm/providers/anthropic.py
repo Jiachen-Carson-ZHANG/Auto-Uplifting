@@ -5,6 +5,7 @@ from src.llm.backend import LLMBackend, Message
 
 class AnthropicBackend(LLMBackend):
     def __init__(self, model: str, client) -> None:
+        self.provider = "anthropic"
         self.model = model
         self._client = client
 

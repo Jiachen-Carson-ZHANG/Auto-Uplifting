@@ -5,6 +5,7 @@ from src.llm.backend import LLMBackend, Message
 
 class OpenAIBackend(LLMBackend):
     def __init__(self, model: str, client) -> None:
+        self.provider = "openai"
         self.model = model
         self._client = client
 
