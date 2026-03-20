@@ -195,7 +195,6 @@ class ExperimentSession:
         result = self._runner.run(config)
 
         diagnostics = RunDiagnostics(
-            data_profile_ref=str(self._session_dir / "data_profile.json"),
             failure_mode="execution_error" if result.status == "failed" else None,
         )
 

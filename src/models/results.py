@@ -37,11 +37,9 @@ class DataProfile(BaseModel):
 
 
 class RunDiagnostics(BaseModel):
-    data_profile_ref: str = ""
+    """Computed observations after a run completes. All fields optional — never required for correctness."""
     overfitting_gap: Optional[float] = None
-    feature_importances: Dict[str, float] = Field(default_factory=dict)
     metric_vs_parent: Optional[float] = None
-    change_description: str = ""
     failure_mode: Optional[str] = None
 
 
