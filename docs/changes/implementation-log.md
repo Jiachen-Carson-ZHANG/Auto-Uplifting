@@ -1,3 +1,15 @@
+## 2026-03-20 — Schema cleanup: RunResult, RunDiagnostics, RunConfig, RunEntry→ExperimentRun
+
+**What changed:**
+- `RunResult` stripped to execution output only: removed `run_id`, `artifacts_dir`, `raw_info`, `diagnostics_overfitting_gap`; `status` now `Literal["success", "failed"]`
+- `RunDiagnostics` stripped to computed observations: removed `data_profile_ref`, `feature_importances`, `change_description`
+- `RunConfig` stripped to AutoGluon kwargs wrapper: removed `run_id`, `node_id` (owned by `ExperimentRun`)
+- `RunEntry` renamed to `ExperimentRun`; removed `agent_review` (ReviewerAgent not built yet)
+- `ResultParser.from_predictor` now returns `(RunResult, Optional[float])` — overfitting_gap surfaced as a separate value; `from_error` simplified to single `error_msg` arg
+- `AutoGluonRunner.run` propagates the tuple; `session.execute_node` unpacks and puts gap into `RunDiagnostics`
+
+**Why:** Fields were duplicated across 2-3 classes (run_id in ExperimentRun + RunResult + RunConfig), dead fields had accumulated (raw_info, data_profile_ref), and RunEntry's name implied a log line rather than a composite record.
+
 ## 2026-03-20 — Phase 3: Principled Refinement
 
 **What changed:**
