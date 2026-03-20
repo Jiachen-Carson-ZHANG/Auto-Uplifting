@@ -42,9 +42,7 @@ class AutoGluonRunner:
             from autogluon.tabular import TabularPredictor
         except ImportError:
             return ResultParser.from_error(
-                run_id=config.run_id,
-                error_msg="AutoGluon not installed. Run: pip install autogluon.tabular",
-                artifacts_dir=config.output_dir,
+                "AutoGluon not installed. Run: pip install autogluon.tabular"
             )
 
         os.makedirs(config.output_dir, exist_ok=True)
@@ -69,11 +67,7 @@ class AutoGluonRunner:
             with _log_to_file(log_path):
                 predictor.fit(df, **fit_kwargs)
         except Exception as e:
-            return ResultParser.from_error(
-                run_id=config.run_id,
-                error_msg=str(e),
-                artifacts_dir=config.output_dir,
-            )
+            return ResultParser.from_error(str(e))
         fit_time = time.time() - start
 
         # Get validation score from leaderboard

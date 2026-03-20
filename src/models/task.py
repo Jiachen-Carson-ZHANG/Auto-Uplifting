@@ -30,8 +30,7 @@ class ExperimentPlan(BaseModel):
 
 
 class RunConfig(BaseModel):
-    run_id: str
-    node_id: str
+    """AutoGluon-ready execution config. IDs (run_id, node_id) live in ExperimentRun."""
     autogluon_kwargs: Dict[str, Any]
     data_path: str
     output_dir: str

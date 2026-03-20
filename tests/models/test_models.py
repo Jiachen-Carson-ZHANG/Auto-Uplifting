@@ -35,15 +35,13 @@ def test_experiment_plan_validation():
     assert "GBM" in plan.model_families
 
 
-def test_run_config_has_node_id():
+def test_run_config_has_output_dir():
     config = RunConfig(
-        run_id="run_0001",
-        node_id="node_abc",
         autogluon_kwargs={"eval_metric": "roc_auc", "time_limit": 120},
         data_path="data/test.csv",
-        output_dir="experiments/test/runs/run_0001"
+        output_dir="experiments/test/runs/run_0001",
     )
-    assert config.node_id == "node_abc"
+    assert config.output_dir == "experiments/test/runs/run_0001"
 
 
 def test_run_result_failed():

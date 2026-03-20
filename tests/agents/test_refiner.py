@@ -25,17 +25,13 @@ def _make_incumbent(overfitting_gap=0.02, metric=0.87):
         rationale="initial",
     )
     config = RunConfig(
-        run_id="run_0001",
-        node_id="node_abc",
         autogluon_kwargs={"hyperparameters": {"GBM": {}, "XGB": {}}},
         data_path="data/train.csv",
         output_dir="/tmp",
     )
     result = RunResult(
-        run_id="run_0001",
         status="success",
         primary_metric=metric,
-        diagnostics_overfitting_gap=overfitting_gap,
     )
     diagnostics = RunDiagnostics(overfitting_gap=overfitting_gap)
     return RunEntry(run_id="run_0001", node_id="node_abc", plan=plan, config=config, result=result, diagnostics=diagnostics)

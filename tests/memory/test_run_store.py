@@ -16,15 +16,15 @@ def make_run_entry(run_id: str, metric: float, status: str = "success") -> RunEn
         hyperparameters=None, use_fit_extra=False, rationale="test"
     )
     config = RunConfig(
-        run_id=run_id, node_id="node_001",
         autogluon_kwargs={"eval_metric": "roc_auc"},
-        data_path="data/test.csv", output_dir=f"experiments/test/runs/{run_id}"
+        data_path="data/test.csv",
+        output_dir=f"experiments/test/runs/{run_id}",
     )
     result = RunResult(
-        run_id=run_id, status=status,
+        status=status,
         primary_metric=metric if status == "success" else None,
-        leaderboard=[], best_model_name="GBM" if status == "success" else None,
-        fit_time_seconds=10.0, artifacts_dir=f"experiments/test/runs/{run_id}"
+        best_model_name="GBM" if status == "success" else None,
+        fit_time_seconds=10.0,
     )
     return RunEntry(
         run_id=run_id, node_id="node_001",

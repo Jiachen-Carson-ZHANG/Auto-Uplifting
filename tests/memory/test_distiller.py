@@ -13,13 +13,15 @@ def _make_run_entry(run_id: str, metric: float, families: list) -> RunEntry:
         time_limit=120, feature_policy={}, validation_policy={"holdout_frac": 0.2},
     )
     config = RunConfig(
-        run_id=run_id, node_id="n1", autogluon_kwargs={"eval_metric": "roc_auc", "presets": "medium_quality", "time_limit": 120, "hyperparameters": {f: {} for f in families}},
-        data_path="data/train.csv", output_dir=f"experiments/runs/{run_id}",
+        autogluon_kwargs={"eval_metric": "roc_auc", "presets": "medium_quality", "time_limit": 120, "hyperparameters": {f: {} for f in families}},
+        data_path="data/train.csv",
+        output_dir=f"experiments/runs/{run_id}",
     )
     result = RunResult(
-        run_id=run_id, status="success", primary_metric=metric,
-        best_model_name="WeightedEnsemble_L2", fit_time_seconds=10.0,
-        artifacts_dir=f"experiments/runs/{run_id}",
+        status="success",
+        primary_metric=metric,
+        best_model_name="WeightedEnsemble_L2",
+        fit_time_seconds=10.0,
     )
     return RunEntry(
         run_id=run_id, node_id="n1", config=config, result=result,

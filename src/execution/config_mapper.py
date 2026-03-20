@@ -8,8 +8,6 @@ class ConfigMapper:
     @staticmethod
     def to_run_config(
         plan: ExperimentPlan,
-        run_id: str,
-        node_id: str,
         data_path: str,
         output_dir: str,
     ) -> RunConfig:
@@ -40,8 +38,6 @@ class ConfigMapper:
             kwargs["hyperparameters"] = plan.hyperparameters
 
         return RunConfig(
-            run_id=run_id,
-            node_id=node_id,
             autogluon_kwargs=kwargs,
             data_path=data_path,
             output_dir=output_dir,

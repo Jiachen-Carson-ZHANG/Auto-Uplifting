@@ -94,11 +94,9 @@ def test_session_run_store_records_entry(tmp_path):
         validation_policy={"holdout_frac": 0.2, "num_bag_folds": 0},
         hyperparameters=None, use_fit_extra=False, rationale="test"
     )
-    config = RunConfig(run_id="r001", node_id="n001",
-                      autogluon_kwargs={}, data_path="d", output_dir="o")
-    result = RunResult(run_id="r001", status="success", primary_metric=0.85,
-                      leaderboard=[], best_model_name="GBM", fit_time_seconds=5.0,
-                      artifacts_dir="o")
+    config = RunConfig(autogluon_kwargs={}, data_path="d", output_dir="o")
+    result = RunResult(status="success", primary_metric=0.85,
+                      best_model_name="GBM", fit_time_seconds=5.0)
     entry = RunEntry(run_id="r001", node_id="n001", config=config, result=result,
                     diagnostics=RunDiagnostics(), timestamp=datetime.now())
     session.run_store.append(entry)

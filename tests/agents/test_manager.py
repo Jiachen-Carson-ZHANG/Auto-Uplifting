@@ -27,11 +27,9 @@ def make_node(node_id="n1", parent_id=None, stage=NodeStage.WARMUP, metric=None)
         debug_depth=0, created_at=datetime.now()
     )
     if metric is not None:
-        config = RunConfig(run_id="r1", node_id=node_id,
-                          autogluon_kwargs={}, data_path="d", output_dir="o")
-        result = RunResult(run_id="r1", status="success", primary_metric=metric,
-                          leaderboard=[], best_model_name="GBM", fit_time_seconds=10.0,
-                          artifacts_dir="o")
+        config = RunConfig(autogluon_kwargs={}, data_path="d", output_dir="o")
+        result = RunResult(status="success", primary_metric=metric,
+                          best_model_name="GBM", fit_time_seconds=10.0)
         entry = RunEntry(run_id="r1", node_id=node_id,
                         config=config, result=result,
                         diagnostics=RunDiagnostics(), timestamp=datetime.now())

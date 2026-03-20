@@ -168,8 +168,6 @@ class ExperimentSession:
 
         config = ConfigMapper.to_run_config(
             plan=node.plan,
-            run_id=run_id,
-            node_id=node.node_id,
             data_path=self.task.data_path,
             output_dir=run_dir,
         )

@@ -28,13 +28,9 @@ def test_config_mapper_basic():
     plan = make_plan()
     config = ConfigMapper.to_run_config(
         plan=plan,
-        run_id="run_0001",
-        node_id="node_abc",
         data_path="data/test.csv",
-        output_dir="experiments/test/runs/run_0001"
+        output_dir="experiments/test/runs/run_0001",
     )
-    assert config.run_id == "run_0001"
-    assert config.node_id == "node_abc"
     assert config.autogluon_kwargs["eval_metric"] == "roc_auc"
     assert config.autogluon_kwargs["time_limit"] == 120
     assert config.autogluon_kwargs["presets"] == "medium_quality"
@@ -43,8 +39,7 @@ def test_config_mapper_basic():
 def test_config_mapper_model_families():
     plan = make_plan(model_families=["GBM", "CAT"])
     config = ConfigMapper.to_run_config(
-        plan=plan, run_id="r", node_id="n",
-        data_path="d", output_dir="o"
+        plan=plan, data_path="d", output_dir="o"
     )
     hp = config.autogluon_kwargs.get("hyperparameters", {})
     assert "GBM" in hp
@@ -56,8 +51,7 @@ def test_config_mapper_kfold_validation():
         validation_policy={"holdout_frac": 0.0, "num_bag_folds": 5}
     )
     config = ConfigMapper.to_run_config(
-        plan=plan, run_id="r", node_id="n",
-        data_path="d", output_dir="o"
+        plan=plan, data_path="d", output_dir="o"
     )
     assert config.autogluon_kwargs.get("num_bag_folds") == 5
 
@@ -67,8 +61,7 @@ def test_config_mapper_excludes_columns():
         feature_policy={"exclude_columns": ["PassengerId", "Name"], "include_columns": []}
     )
     config = ConfigMapper.to_run_config(
-        plan=plan, run_id="r", node_id="n",
-        data_path="d", output_dir="o"
+        plan=plan, data_path="d", output_dir="o"
     )
     assert config.autogluon_kwargs.get("excluded_columns") == ["PassengerId", "Name"]
 
@@ -100,11 +93,7 @@ def test_result_parser_success():
 
 
 def test_result_parser_failed():
-    result = ResultParser.from_error(
-        run_id="run_0001",
-        error_msg="AutoGluon OOM",
-        artifacts_dir="experiments/test/runs/run_0001"
-    )
+    result = ResultParser.from_error("AutoGluon OOM")
     assert result.status == "failed"
     assert result.primary_metric is None
     assert "OOM" in result.error

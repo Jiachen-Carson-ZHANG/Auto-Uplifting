@@ -28,12 +28,14 @@ def _make_profile() -> DataProfile:
 
 def _make_run(run_id: str, status: str, metric: float = None) -> RunEntry:
     config = RunConfig(
-        run_id=run_id, node_id="n1", autogluon_kwargs={},
-        data_path="data/train.csv", output_dir=f"experiments/runs/{run_id}",
+        autogluon_kwargs={},
+        data_path="data/train.csv",
+        output_dir=f"experiments/runs/{run_id}",
     )
     result = RunResult(
-        run_id=run_id, status=status,
-        primary_metric=metric, fit_time_seconds=10.0, artifacts_dir="",
+        status=status,
+        primary_metric=metric,
+        fit_time_seconds=10.0,
     )
     return RunEntry(run_id=run_id, node_id="n1", config=config,
                     result=result, diagnostics=RunDiagnostics())

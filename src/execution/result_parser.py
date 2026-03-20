@@ -81,15 +81,8 @@ class ResultParser:
         )
 
     @staticmethod
-    def from_error(run_id: str, error_msg: str, artifacts_dir: str) -> RunResult:
+    def from_error(error_msg: str) -> RunResult:
         return RunResult(
-            run_id=run_id,
             status="failed",
-            primary_metric=None,
-            leaderboard=[],
-            best_model_name=None,
-            fit_time_seconds=0.0,
-            artifacts_dir=artifacts_dir,
             error=error_msg,
-            raw_info={},
         )
