@@ -76,8 +76,6 @@ class AutoGluonRunner:
 
         return ResultParser.from_predictor(
             predictor=predictor,
-            run_id=config.run_id,
             fit_time=fit_time,
-            artifacts_dir=config.output_dir,
             primary_metric_value=primary_metric,
         )
