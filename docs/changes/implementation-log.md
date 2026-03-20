@@ -44,3 +44,26 @@ The optimize loop called SelectorAgent with a generic "refine this config" strin
 **Effect:** The agent is no longer stateless. Each session retrieves similar past cases via cosine similarity on task traits and starts with informed hypotheses. At session end, the run history is distilled into a CaseEntry and persisted to CaseStore for future sessions.
 
 **Tests:** 66 passing
+
+## Phase 4a: Campaign Orchestration (2026-03-20)
+
+**What changed:**
+- Added `CampaignOrchestrator` (`src/orchestration/campaign.py`) — outer loop over multiple `ExperimentSession`s, stops on metric plateau or session budget
+- Added `CampaignConfig`, `SessionSummary`, `CampaignResult` models (`src/models/campaign.py`)
+- Added `PreprocessingPlan` model + stub `PreprocessingExecutor` (`src/models/preprocessing.py`, `src/execution/preprocessing_runner.py`)
+- `ExperimentSession` gains `preprocessed_data_path` param; data profile cached eagerly as `self._data_profile`
+- Added `campaign.py` entrypoint (root); `configs/project.yaml` gains `campaign:` section
+
+**Why:**
+- Enable multi-session search campaigns that improve over time (plateau → stop)
+- Phase 4b will replace identity preprocessing with LLM-generated transforms
+
+**Tradeoffs:**
+- `PreprocessingExecutor` is a stub (identity copy only); Phase 4b adds code gen
+- `CampaignOrchestrator` has 6 pass-through params to `ExperimentSession` (deferred `SessionConfig` refactor, see TODOS.md)
+- Cross-session IdeatorAgent history deferred to Phase 4b (no signal when all sessions use same data)
+
+**Must remain true:**
+- `session._data_path` must be used in BOTH `profile_data()` (line ~121) AND `execute_node()` (line ~180) — otherwise preprocessing is silently ignored for training
+- `campaign.json` must be written after EACH session (crash-survival guarantee)
+- `get_incumbent(higher_is_better=...)` kwarg must be passed explicitly

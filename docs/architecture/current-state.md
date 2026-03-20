@@ -1,7 +1,7 @@
 # Architecture: Current State
 
 **Last updated:** 2026-03-20
-**Phase:** 3 (Principled Refinement complete)
+**Phase:** 4a (Campaign Orchestration complete)
 
 ## Four-Layer Architecture
 
@@ -14,7 +14,7 @@
 |  ExperimentManager: warmup/optimize/stop routing          |
 +-----------------------------------------------------------+
 |  ORCHESTRATION LAYER                                      |
-|  ExperimentTree, Scheduler, AcceptReject                  |
+|  CampaignOrchestrator, ExperimentTree, Scheduler, AcceptReject |
 |  Tree: graph-structured lineage with edge labels          |
 |  Scheduler: warmup → optimize transitions, budget         |
 |  AcceptReject: direction-aware incumbent gating           |
@@ -57,6 +57,9 @@
 | ExperimentNode | models/nodes.py | Tree node with edge_label for Graph RAG |
 | CaseEntry | models/nodes.py | Distilled session knowledge for cross-session retrieval |
 | SearchContext | models/nodes.py | Briefing assembled for agent before each decision |
+| CampaignResult | models/campaign.py | Full record of a multi-session campaign |
+| SessionSummary | models/campaign.py | Per-session result within a campaign |
+| PreprocessingPlan | models/preprocessing.py | Stub for Phase 4b preprocessing strategy |
 
 ## Session Outputs
 
@@ -74,4 +77,5 @@ experiments/case_bank.jsonl  — cross-session CaseStore
 
 - ReviewerAgent — post-run quality assessment (Phase 4)
 - Optuna executor (Phase 4)
+- **Phase 4b:** PreprocessingAgent (ReAct code gen), ValidationHarness, preprocessing_bank, EmbeddingRetriever, external knowledge seeds
 - Graph RAG over ExperimentNode trees (Phase 5)
