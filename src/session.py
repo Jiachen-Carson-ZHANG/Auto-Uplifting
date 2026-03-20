@@ -46,6 +46,7 @@ class ExperimentSession:
         higher_is_better: bool = True,
         seed_ideas: Optional[List[Dict[str, str]]] = None,
         case_store_path: Optional[str] = None,
+        preprocessed_data_path: Optional[str] = None,
     ) -> None:
         self.task = task
         self._llm = llm
@@ -55,6 +56,9 @@ class ExperimentSession:
         session_name = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{task.task_name}"
         self._session_dir = Path(experiments_dir) / session_name
         self._session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Resolve effective data path: preprocessed CSV takes precedence over raw task path
+        self._data_path = preprocessed_data_path or task.data_path
 
         # Session logger — writes to both stdout and session.log
         self._log = logging.getLogger(f"session.{task.task_name}")
@@ -102,14 +106,18 @@ class ExperimentSession:
                 "model": getattr(llm, "model", "unknown"),
             },
             "case_store_path": case_store_path,
+            "preprocessed_data_path": preprocessed_data_path,
         }
         (self._session_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2, default=str)
         )
 
+        # Profile data eagerly so it is available as an attribute
+        self._data_profile = self.profile_data()
+
     def profile_data(self) -> DataProfile:
         """Build a DataProfile from the task's dataset."""
-        df = pd.read_csv(self.task.data_path)
+        df = pd.read_csv(self._data_path)
         target = self.task.target_column
         feature_cols = [c for c in df.columns if c != target]
         n_features = len(feature_cols)
@@ -168,7 +176,7 @@ class ExperimentSession:
 
         config = ConfigMapper.to_run_config(
             plan=node.plan,
-            data_path=self.task.data_path,
+            data_path=self._data_path,
             output_dir=run_dir,
         )
 

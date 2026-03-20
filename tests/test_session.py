@@ -102,3 +102,32 @@ def test_session_run_store_records_entry(tmp_path):
     session.run_store.append(entry)
     assert len(session.run_store.get_history()) == 1
     assert session.run_store.get_incumbent(higher_is_better=True).run_id == "r001"
+
+
+def test_session_uses_preprocessed_data_path(tmp_path):
+    """When preprocessed_data_path is provided, session loads that CSV."""
+    mock_llm = MagicMock(spec=LLMBackend)
+
+    # raw CSV (5 rows)
+    raw_csv = tmp_path / "raw.csv"
+    raw_csv.write_text("feature1,feature2,label\n1,2,0\n3,4,1\n5,6,0\n7,8,1\n9,10,0\n")
+
+    # preprocessed CSV (same columns, 3 rows — deliberately different)
+    prep_csv = tmp_path / "preprocessed_data.csv"
+    prep_csv.write_text("feature1,feature2,label\n1,2,0\n3,4,1\n5,6,0\n")
+
+    task = TaskSpec(
+        task_name="test", task_type="binary",
+        data_path=str(raw_csv), target_column="label",
+        eval_metric="roc_auc", description="Test",
+    )
+    session = ExperimentSession(
+        task=task, llm=mock_llm,
+        experiments_dir=str(tmp_path / "experiments"),
+        num_candidates=1, max_optimize_iterations=1,
+        preprocessed_data_path=str(prep_csv),
+    )
+    # Data profile should reflect the preprocessed CSV (3 rows), not the raw (5 rows)
+    assert session._data_profile.n_rows == 3
+    # AutoGluon must also train on preprocessed data, not raw
+    assert session._data_path == str(prep_csv)
