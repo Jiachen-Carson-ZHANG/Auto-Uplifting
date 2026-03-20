@@ -29,7 +29,7 @@ class PreprocessingExecutor:
         out_path = out_dir / "preprocessed_data.csv"
 
         if plan.strategy == "identity":
-            shutil.copy2(data_path, str(out_path))
+            shutil.copy2(data_path, out_path)
             return str(out_path)
 
         raise NotImplementedError(
