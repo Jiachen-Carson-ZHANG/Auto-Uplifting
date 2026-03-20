@@ -28,6 +28,7 @@ from src.memory.distiller import Distiller
 from src.memory.context_builder import ContextBuilder
 from src.agents.ideator import IdeatorAgent
 from src.memory.trait_utils import rows_bucket, features_bucket, balance_bucket
+from src.models.preprocessing import PreprocessingPlan
 
 
 class ExperimentSession:
@@ -251,7 +252,7 @@ class ExperimentSession:
         self._log.info("=" * 60)
 
         # Step 1: Profile data
-        data_profile = self.profile_data()
+        data_profile = self._data_profile
         self._log.info("Data profile: %s", data_profile.summary)
 
         # Step 2: Load hypotheses
