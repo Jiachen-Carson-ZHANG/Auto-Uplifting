@@ -88,3 +88,47 @@ def test_distill_computes_traits_locally():
     assert case.task_traits.task_type == "binary"
     assert case.task_traits.n_rows_bucket == "small"   # 200 < 1000
     assert case.task_traits.class_balance == "moderate"  # 0.5 is in [0.4, 0.8) → moderate
+
+
+def _make_task_and_profile():
+    task = TaskSpec(
+        task_name="test", task_type="binary", data_path="data/train.csv",
+        target_column="label", eval_metric="roc_auc",
+        description="test task", constraints={},
+    )
+    profile = DataProfile(n_rows=891, n_features=10, class_balance_ratio=0.6, missing_rate=0.05)
+    runs = [_make_run_entry("run_0001", 0.87, ["GBM", "CAT"])]
+    return task, profile, runs
+
+
+def test_distill_without_embed_backend_sets_embedding_none():
+    mock_llm = MagicMock()
+    mock_llm.complete.return_value = LLM_RESPONSE
+    task, profile, runs = _make_task_and_profile()
+
+    case = Distiller(llm=mock_llm).distill(task, profile, runs)
+    assert case.embedding is None
+    assert case.description_for_embedding != ""  # description is still built
+
+
+def test_distill_with_embed_backend_calls_embed():
+    mock_llm = MagicMock()
+    mock_llm.complete.return_value = LLM_RESPONSE
+    mock_embed = MagicMock()
+    mock_embed.embed.return_value = [0.1, 0.2, 0.3]
+    task, profile, runs = _make_task_and_profile()
+
+    case = Distiller(llm=mock_llm, embed_backend=mock_embed).distill(task, profile, runs)
+    mock_embed.embed.assert_called_once()
+    assert case.embedding == [0.1, 0.2, 0.3]
+
+
+def test_distill_embed_failure_returns_none_embedding():
+    mock_llm = MagicMock()
+    mock_llm.complete.return_value = LLM_RESPONSE
+    mock_embed = MagicMock()
+    mock_embed.embed.side_effect = RuntimeError("API down")
+    task, profile, runs = _make_task_and_profile()
+
+    case = Distiller(llm=mock_llm, embed_backend=mock_embed).distill(task, profile, runs)
+    assert case.embedding is None  # graceful degradation

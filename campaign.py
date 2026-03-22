@@ -67,6 +67,9 @@ def main():
         max_sessions=campaign_cfg.get("max_sessions", 5),
         plateau_threshold=campaign_cfg.get("plateau_threshold", 0.002),
         plateau_window=campaign_cfg.get("plateau_window", 3),
+        preprocessing_bank_path=campaign_cfg.get(
+            "preprocessing_bank_path", "experiments/preprocessing_bank.jsonl"
+        ),
     )
 
     orchestrator = CampaignOrchestrator(

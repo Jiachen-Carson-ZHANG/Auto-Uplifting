@@ -99,3 +99,63 @@ def test_openai_backend_passes_all_messages():
     api_messages = call_kwargs["messages"]
     # System message IS in messages list for OpenAI (unlike Anthropic)
     assert any(m["role"] == "system" for m in api_messages)
+
+
+def test_openai_backend_retries_on_transient_400(monkeypatch):
+    """A 400 error is retried up to _MAX_RETRIES times before re-raising."""
+    import time
+    monkeypatch.setattr(time, "sleep", lambda _: None)  # no real sleeping in tests
+
+    # Simulate a 400 APIStatusError from openai
+    class FakeAPIError(Exception):
+        status_code = 400
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = FakeAPIError("bad json body")
+
+    backend = OpenAIBackend(model="gpt-4o", client=mock_client)
+    with pytest.raises(FakeAPIError):
+        backend.complete(messages=[Message(role="user", content="hi")])
+
+    # Should have attempted _MAX_RETRIES times then raised
+    from src.llm.providers.openai import _MAX_RETRIES
+    assert mock_client.chat.completions.create.call_count == _MAX_RETRIES
+
+
+def test_openai_backend_succeeds_after_transient_failure(monkeypatch):
+    """Succeeds on second attempt after a transient 500."""
+    import time
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    class FakeServerError(Exception):
+        status_code = 500
+
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "recovered"
+    ok_response = MagicMock(choices=[mock_choice])
+    mock_client.chat.completions.create.side_effect = [FakeServerError("oops"), ok_response]
+
+    backend = OpenAIBackend(model="gpt-4o", client=mock_client)
+    result = backend.complete(messages=[Message(role="user", content="hi")])
+    assert result == "recovered"
+    assert mock_client.chat.completions.create.call_count == 2
+
+
+def test_openai_backend_non_retryable_error_raises_immediately(monkeypatch):
+    """Non-retryable errors (e.g. 401 auth) are raised on first attempt."""
+    import time
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    class FakeAuthError(Exception):
+        status_code = 401
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = FakeAuthError("invalid key")
+
+    backend = OpenAIBackend(model="gpt-4o", client=mock_client)
+    with pytest.raises(FakeAuthError):
+        backend.complete(messages=[Message(role="user", content="hi")])
+
+    # Should have raised immediately — no retries for auth errors
+    assert mock_client.chat.completions.create.call_count == 1

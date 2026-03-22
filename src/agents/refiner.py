@@ -86,8 +86,15 @@ class RefinerAgent:
             for r in prior_runs[-5:]:
                 m = r.result.primary_metric
                 fams = r.plan.model_families if r.plan else []
+                delta = r.diagnostics.metric_vs_parent
+                if delta is None:
+                    verdict = ""
+                elif delta > 0:
+                    verdict = f" ✓ improved +{delta:.4f}"
+                else:
+                    verdict = f" ✗ no improvement ({delta:.4f})"
                 lines.append(
-                    f"  run={r.run_id} metric={m} families={fams} status={r.result.status}"
+                    f"  run={r.run_id} metric={m} families={fams} status={r.result.status}{verdict}"
                 )
             history_text = "\n## Prior Runs\n" + "\n".join(lines)
 

@@ -30,6 +30,20 @@ def test_overfitting_gap_computed():
     assert overfitting_gap == pytest.approx(0.95 - 0.87)
 
 
+def test_nan_score_train_treated_as_none():
+    """AutoGluon returns NaN for score_train when it can't compute train scores.
+    We treat NaN as None so it doesn't propagate as a float NaN into diagnostics."""
+    import math
+    predictor = _make_predictor(
+        val_scores=[0.87, 0.85],
+        train_scores=[float("nan"), float("nan")],
+    )
+    result, overfitting_gap = ResultParser.from_predictor(predictor, 10.0, 0.87)
+    # NaN score_train → stored as None, overfitting_gap not computed
+    assert result.leaderboard[0].score_train is None
+    assert overfitting_gap is None
+
+
 def test_overfitting_gap_none_when_extra_info_fails():
     """extra_info=True fails → fallback to basic leaderboard → gap is None but entries populated."""
     lb_basic = pd.DataFrame({

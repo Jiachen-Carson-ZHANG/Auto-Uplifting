@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import logging
+import math
 from typing import Any, Optional, Tuple
 from src.models.results import RunResult, ModelEntry
 
@@ -37,18 +38,24 @@ class ResultParser:
         try:
             lb = predictor.leaderboard(extra_info=True)
             best_row = lb.iloc[0]
-            score_train = float(best_row["score_train"]) if "score_train" in lb.columns else None
+            _score_train_raw = float(best_row["score_train"]) if "score_train" in lb.columns else None
+            score_train = (
+                _score_train_raw
+                if _score_train_raw is not None and not math.isnan(_score_train_raw)
+                else None
+            )
             score_val = float(best_row["score_val"])
             if score_train is not None:
                 overfitting_gap = round(score_train - score_val, 4)
             for row in lb.itertuples():
+                _st = getattr(row, "score_train", None)
                 leaderboard_entries.append(ModelEntry(
                     model_name=row.model,
                     score_val=row.score_val,
-                    fit_time=row.fit_time,
-                    pred_time=row.pred_time,
+                    fit_time=getattr(row, "fit_time", None) or getattr(row, "fit_time_marginal", 0.0),
+                    pred_time=getattr(row, "pred_time_val", None) or getattr(row, "pred_time", 0.0),
                     stack_level=getattr(row, "stack_level", 1),
-                    score_train=getattr(row, "score_train", None),
+                    score_train=_st if _st is not None and not math.isnan(float(_st)) else None,
                 ))
         except Exception as e:
             logger.warning("leaderboard(extra_info=True) failed, falling back to basic leaderboard: %s", e)
@@ -58,8 +65,8 @@ class ResultParser:
                     leaderboard_entries.append(ModelEntry(
                         model_name=row.model,
                         score_val=row.score_val,
-                        fit_time=row.fit_time,
-                        pred_time=row.pred_time,
+                        fit_time=getattr(row, "fit_time", None) or getattr(row, "fit_time_marginal", 0.0),
+                        pred_time=getattr(row, "pred_time_val", None) or getattr(row, "pred_time", 0.0),
                         stack_level=getattr(row, "stack_level", 1),
                     ))
             except Exception:

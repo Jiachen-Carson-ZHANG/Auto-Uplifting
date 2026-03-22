@@ -141,6 +141,11 @@ class CaseEntry(BaseModel):
     Stored in: CaseStore (case_bank.jsonl), one entry per session.
     Read by: CaseRetriever at the start of future sessions to surface relevant past experience,
     which is then passed to IdeatorAgent as similar_cases context.
+
+    description_for_embedding: human-readable text summary used as input to embed().
+                                Built by Distiller from task traits + key decisions.
+                                Empty string means embedding was not attempted.
+    embedding: populated by Distiller when OpenAIBackend is available; None otherwise.
     """
     case_id: str
     timestamp: datetime = Field(default_factory=datetime.now)
@@ -149,7 +154,8 @@ class CaseEntry(BaseModel):
     what_failed: WhatFailed
     trajectory: SessionTrajectory
     tree_summary: TreeSummary = Field(default_factory=TreeSummary)
-    embedding: Optional[List[float]] = None  # reserved for future vector store retrieval
+    description_for_embedding: str = ""   # text used as embed() input (Step 6)
+    embedding: Optional[List[float]] = None  # populated by Distiller when OpenAIBackend available
 
 
 class SearchContext(BaseModel):

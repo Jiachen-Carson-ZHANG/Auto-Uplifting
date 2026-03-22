@@ -1,8 +1,9 @@
 from __future__ import annotations
 import json
+import logging
 import uuid
 from pathlib import Path
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 from src.llm.backend import LLMBackend, Message
 from src.models.task import TaskSpec, ExperimentPlan
 from src.models.results import DataProfile, ExperimentRun
@@ -11,13 +12,29 @@ from src.models.nodes import (
 )
 from src.memory.trait_utils import rows_bucket, features_bucket, balance_bucket
 
+if TYPE_CHECKING:
+    from src.llm.providers.openai import OpenAIBackend
+
+logger = logging.getLogger(__name__)
+
 
 class Distiller:
-    """Summarises a completed session into a CaseEntry via LLM."""
+    """Summarises a completed session into a CaseEntry via LLM.
 
-    def __init__(self, llm: LLMBackend, prompt_path: str = "prompts/distiller.md") -> None:
+    If an OpenAIBackend is provided, also embeds description_for_embedding
+    and stores the vector in CaseEntry.embedding (for EmbeddingRetriever).
+    embed() failures are silently swallowed — embedding=None on failure.
+    """
+
+    def __init__(
+        self,
+        llm: LLMBackend,
+        prompt_path: str = "prompts/distiller.md",
+        embed_backend: Optional["OpenAIBackend"] = None,
+    ) -> None:
         self._llm = llm
         self._system_prompt = Path(prompt_path).read_text()
+        self._embed_backend = embed_backend
 
     def distill(
         self,
@@ -92,12 +109,40 @@ class Distiller:
         )
         trajectory.turning_points = traj_raw.get("turning_points", [])
 
+        description = self._build_description(task, traits, what_worked)
+        embedding: Optional[List[float]] = None
+        if self._embed_backend is not None:
+            try:
+                embedding = self._embed_backend.embed(description)
+            except Exception as exc:
+                logger.warning("Distiller: embed() failed, storing entry without embedding: %s", exc)
+
         return CaseEntry(
             case_id=str(uuid.uuid4()),
             task_traits=traits,
             what_worked=what_worked,
             what_failed=what_failed,
             trajectory=trajectory,
+            description_for_embedding=description,
+            embedding=embedding,
+        )
+
+    def _build_description(
+        self,
+        task: TaskSpec,
+        traits: TaskTraits,
+        what_worked: WhatWorked,
+    ) -> str:
+        """Build a human-readable summary for embedding."""
+        decisions = "; ".join(what_worked.key_decisions[:5]) if what_worked.key_decisions else "none"
+        features = ", ".join(what_worked.important_features[:5]) if what_worked.important_features else "none"
+        return (
+            f"Task: {task.task_type} on {task.task_name}. "
+            f"Dataset: {traits.n_rows_bucket} rows, {traits.n_features_bucket} features, "
+            f"{traits.class_balance} balance. "
+            f"Best metric: {what_worked.best_metric:.4f} with {what_worked.effective_presets} presets. "
+            f"Key decisions: {decisions}. "
+            f"Important features: {features}."
         )
 
     def _build_user_message(

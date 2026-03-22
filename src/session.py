@@ -60,17 +60,19 @@ class ExperimentSession:
         # Resolve effective data path: preprocessed CSV takes precedence over raw task path
         self._data_path = preprocessed_data_path or task.data_path
 
-        # Session logger — writes to both stdout and session.log
-        self._log = logging.getLogger(f"session.{task.task_name}")
+        # Session logger — unique per session to avoid cross-session handler sharing.
+        # propagate=False prevents double-printing via the root logger (AutoGluon sets
+        # up a root StreamHandler via basicConfig, which would otherwise duplicate every line).
+        self._log = logging.getLogger(f"session.{session_name}")
         self._log.setLevel(logging.DEBUG)
-        if not self._log.handlers:
-            fmt = logging.Formatter("%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
-            sh = logging.StreamHandler()
-            sh.setFormatter(fmt)
-            fh = logging.FileHandler(self._session_dir / "session.log", mode="a")
-            fh.setFormatter(fmt)
-            self._log.addHandler(sh)
-            self._log.addHandler(fh)
+        self._log.propagate = False
+        fmt = logging.Formatter("%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
+        sh = logging.StreamHandler()
+        sh.setFormatter(fmt)
+        fh = logging.FileHandler(self._session_dir / "session.log", mode="a")
+        fh.setFormatter(fmt)
+        self._log.addHandler(sh)
+        self._log.addHandler(fh)
 
         # Core components
         self.run_store = RunStore(self._session_dir / "decisions.jsonl")

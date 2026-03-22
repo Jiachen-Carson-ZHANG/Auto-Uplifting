@@ -51,7 +51,10 @@ class AutoGluonRunner:
         log_path = os.path.join(config.output_dir, "training.log")
 
         kwargs = dict(config.autogluon_kwargs)
-        kwargs["path"] = config.output_dir
+        # Use a subdirectory for AutoGluon's model artifacts so that the run directory
+        # (which we pre-create for run_config.json / training.log) doesn't trigger
+        # AutoGluon's "path already exists" overwrite warning.
+        kwargs["path"] = os.path.join(config.output_dir, "models")
 
         predictor = TabularPredictor(
             label=self.target_column,

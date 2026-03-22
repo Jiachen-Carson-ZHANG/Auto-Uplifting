@@ -17,6 +17,7 @@ class CampaignConfig(BaseModel):
     max_sessions: int = 5
     plateau_threshold: float = 0.002   # stop if best metric moves < this across plateau_window sessions
     plateau_window: int = 3            # number of recent sessions to check for plateau
+    preprocessing_bank_path: str = "experiments/preprocessing_bank.jsonl"  # Phase 4b
 
 
 class SessionSummary(BaseModel):
@@ -25,11 +26,13 @@ class SessionSummary(BaseModel):
     Written by CampaignOrchestrator after each session finishes.
     """
     session_id: str
-    best_metric: Optional[float] = None    # None if all runs failed
+    best_metric: Optional[float] = None            # None if all runs failed
     preprocessing_strategy: str = "identity"
-    session_dir: str                       # absolute path to session artifacts
+    preprocessing_validation_passed: bool = False  # True if ValidationHarness accepted the code
+    preprocessing_turns_used: int = 0              # ReAct turns consumed by PreprocessingAgent
+    session_dir: str                               # absolute path to session artifacts
     duration_seconds: float
-    error_message: Optional[str] = None   # set if the session raised an exception
+    error_message: Optional[str] = None            # set if the session raised an exception
 
 
 class CampaignResult(BaseModel):

@@ -41,7 +41,7 @@ class ExperimentPlan(BaseModel):
     hyperparameters: Optional[Dict[str, Any]] = None
     use_fit_extra: bool = False
     rationale: str = ""
-
+ 
 
 class RunConfig(BaseModel):
     """AutoGluon-ready execution config — the translated form of an ExperimentPlan.

@@ -1,3 +1,68 @@
+## 2026-03-22 — Phase 4c: Curated Seed Bank + Semantic Retrieval Wired End-to-End
+
+**What changed:**
+- `OpenAIBackend.embed_batch(texts)` — single batch API call to `embeddings.create(model, input=texts)`; sorted by `response.data[i].index` for guaranteed ordering; returns `[None] * len` on failure
+- `PreprocessingStore.seed_from_file(path, embed_backend=None)` — loads seeds from JSONL, skips existing `entry_id`s (idempotent), calls `embed_batch` in one shot, appends each seed atomically via `add()`; logs warning if file missing
+- `CampaignOrchestrator.__init__()` — computes `self._embed_backend = llm if hasattr(llm, "embed") else None`; auto-seeds empty bank from `data/seeds/preprocessing_seeds.jsonl`; warns at startup if bank has null-embedding entries and no embed_backend
+- `CampaignOrchestrator._preprocessing_plan()` — two-stage retrieval: `get_similar(task_type, n=20)` filter → `EmbeddingRetriever(embed_backend).rank(query, candidates, top_k=3)` semantic ranking; query text is `"{task_type} task on {task_name}: {description}"`; falls back to `candidates[:3]` if no embed_backend
+- `CampaignOrchestrator._store_preprocessing_entry()` — embeds `transformation_summary` via `embed_backend.embed()` before storing; null on failure
+- `data/seeds/preprocessing_seeds.jsonl` — expanded from 5 to 20 entries across 5 archetypes: Titanic binary (seeds 001-004), credit risk binary (005-008), house prices regression (009-012), news multiclass (013-016), time series regression (017-020)
+
+**Why:** The EmbeddingRetriever was wired but never had real vectors to rank — all 5 seeds had `embedding: null` and agent-generated entries were also stored without embeddings. Semantic retrieval was silently falling back to naive ordering on every call. This wires the full pipeline: seeds arrive pre-embedded, agent entries are embedded at write time.
+
+**Tradeoff:** `embed_batch` is called at `CampaignOrchestrator.__init__()` time (blocking). With 20 seeds and OpenAI's batch endpoint, this is ~1 API call and takes <1s. AnthropicBackend has no `embed()` — naive ordering remains in effect when using Anthropic.
+
+**Must remain true:**
+- `PreprocessingAgent.generate()` never raises — already guaranteed
+- Auto-seeding only runs when the bank is empty — non-empty banks are never modified at init
+- `seed_from_file` is idempotent by `entry_id` — safe to call with overlapping seed files
+
+---
+
+## 2026-03-21 — Phase 4b: PreprocessingAgent + ValidationHarness + EmbeddingRetriever
+
+**What changed:**
+- `PreprocessingPlan` gains `validation_passed: bool` and `turns_used: int`
+- `PreprocessingEntry` added to `src/models/preprocessing.py` — long-term memory record for successful preprocessing sessions, symmetric with `CaseEntry`
+- `ValidationHarness` (`src/execution/validation_harness.py`) — validates generated `preprocess(df)` code in a subprocess (6 checks: no exception, returns DataFrame, shape ≥50%, target col present, no NaN in target, not identity)
+- `PreprocessingAgent` (`src/agents/preprocessing_agent.py`) — ReAct loop (max 3 turns) that inspects columns and generates validated `preprocess(df)` code; falls back to identity on all errors; never raises
+- `PreprocessingExecutor` extended with `strategy="generated"`: `exec()` the plan code, call `preprocess(df.copy())`, write result; falls back to identity on exec error
+- `PreprocessingStore` (`src/memory/preprocessing_store.py`) — append-only JSONL store for `PreprocessingEntry`, symmetric with `CaseStore`; `get_similar()` filters by task_type
+- `data/seeds/preprocessing_seeds.jsonl` — 5 hand-written seeds (titanic titles, family size, log transforms, house prices, news text) bootstrapping the preprocessing bank
+- `OpenAIBackend.embed()` — calls `embeddings.create(model="text-embedding-3-small")`; returns `None` on failure (not ABC — only OpenAIBackend exposes this)
+- `EmbeddingRetriever` (`src/memory/embedding_retriever.py`) — cosine-ranks `PreprocessingEntry` candidates by embedding similarity; A/B logs naive order vs embedding order; falls back to naive on embed failure
+- `CaseEntry` gains `description_for_embedding: str` + `embedding: Optional[List[float]]`
+- `Distiller` accepts optional `embed_backend: OpenAIBackend`; builds `description_for_embedding` from task traits + key decisions; calls `embed()` and stores vector; silently skips on failure
+- `CampaignOrchestrator` wired end-to-end: session 0 always runs identity (warm-up baseline), subsequent sessions call `PreprocessingAgent.generate()`; logs `validation_passed` and `turns_used`; warns on 2+ consecutive preprocessing failures; stores successful entries in `PreprocessingStore`
+- `SessionSummary` gains `preprocessing_validation_passed: bool` and `preprocessing_turns_used: int`
+- `CampaignConfig` gains `preprocessing_bank_path: str` (default `experiments/preprocessing_bank.jsonl`)
+- `configs/project.yaml` updated with `preprocessing_bank_path`
+
+**Why:** Phase 4a always used identity preprocessing. Phase 4b gives the campaign loop an LLM-driven feature engineering step before each experiment session, grounded in memory of past transformations.
+
+**Tradeoff:** `exec()` in PreprocessingExecutor re-runs the code outside the subprocess sandbox — acceptable because ValidationHarness already verified safety. A double-exec (subprocess + in-process) was considered but rejected as over-engineering for a research tool.
+
+**Must remain true:**
+- `PreprocessingAgent.generate()` never raises — all errors return `strategy="identity"`
+- `ValidationHarness` runs in subprocess isolation — crashes in generated code cannot affect the main process
+- Session 0 always runs identity — the first session is always the clean baseline
+
+---
+
+## 2026-03-20 — Retry logic in OpenAIBackend; NaN sanitization in ResultParser
+
+**What changed:**
+- `OpenAIBackend.complete()`: now retries up to 3 times with exponential backoff (2s, 4s) on status codes 400, 429, 500, 502, 503, 504; non-retryable errors (401, 403, etc.) raise immediately; logs warning on retryable failures, error on final failure
+- `ResultParser.from_predictor`: sanitizes `score_train = NaN` → `None` (AutoGluon returns NaN for models without train scores); prevents `overfitting_gap = NaN` from propagating into `RunDiagnostics`
+
+**Why:** Session 1 in the Phase 4a smoke test failed with a 400 "cannot parse JSON body" from OpenAI on the first optimize call. Root cause is most likely a transient API issue (all 4 warm-up calls and all 9 session-2 calls succeeded). Retry logic makes the orchestrator resilient to transient failures. NaN sanitization is defensive hygiene — pydantic v2 serializes NaN correctly but having NaN floats in diagnostics is an easy source of silent bugs.
+
+**Tradeoff:** Adding retry with sleep increases the wall time of transient failures. Max added latency = 6s (2s + 4s). Acceptable for an ML experiment loop where each run takes seconds to minutes.
+
+**Must remain true:** Non-retryable auth errors (401) must NOT be retried — they fail immediately.
+
+---
+
 ## 2026-03-20 — Schema cleanup: RunResult, RunDiagnostics, RunConfig, RunEntry→ExperimentRun
 
 **What changed:**

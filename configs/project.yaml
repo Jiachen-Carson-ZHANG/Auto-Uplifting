@@ -19,6 +19,7 @@ session:
   experiments_dir: "experiments"
 
 campaign:
-  max_sessions: 5
+  max_sessions: 2
   plateau_threshold: 0.002
   plateau_window: 3
+  preprocessing_bank_path: "experiments/preprocessing_bank.jsonl"
