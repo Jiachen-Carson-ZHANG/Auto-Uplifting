@@ -1,25 +1,39 @@
 # Architecture: Current State
 
-**Last updated:** 2026-03-21
-**Phase:** 4b (PreprocessingAgent + EmbeddingRetriever complete)
+**Last updated:** 2026-03-31
+**Phase:** 5 (Feature Engineering Subsystem)
 
-## Five-Layer Architecture
+## Architecture Overview
+
+The system has two campaign paths:
+
+1. **Preprocessing Campaign** (Phase 4b) — `CampaignOrchestrator` with `PreprocessingAgent`
+2. **Feature Engineering Campaign** (Phase 5) — `FeatureCampaignOrchestrator` with `FeatureEngineeringAgent`
+
+Both share the core session/training spine (`ExperimentSession`, `AutoGluonRunner`, etc.) but are independent sibling orchestrators.
+
+## Six-Layer Architecture
 
 ```
 +-----------------------------------------------------------+
 |  AGENT LAYER                                              |
 |  IdeatorAgent, SelectorAgent, RefinerAgent, ExperimentManager |
 |  PreprocessingAgent: ReAct loop (inspect_column/generate_code) |
-|  IdeatorAgent: data profile + similar cases → hypotheses  |
-|  SelectorAgent: hypothesis → ExperimentPlan (JSON)        |
-|  ExperimentManager: warmup/optimize/stop routing          |
+|  FeatureEngineeringAgent: decision → leakage audit → execute |
+|    Internal pipeline: _decision_call → _leakage_audit_call |
+|    → _execute_bounded (Phase 1) or _codegen (Phase 2)     |
 +-----------------------------------------------------------+
 |  ORCHESTRATION LAYER                                      |
-|  CampaignOrchestrator, ExperimentTree, Scheduler, AcceptReject |
-|  Campaign: session 0=identity baseline, 1+= PreprocessingAgent |
-|  Tree: graph-structured lineage with edge labels          |
-|  Scheduler: warmup → optimize transitions, budget         |
-|  AcceptReject: direction-aware incumbent gating           |
+|  CampaignOrchestrator: preprocessing campaign (Phase 4b)  |
+|  FeatureCampaignOrchestrator: feature engineering campaign |
+|  ExperimentTree, Scheduler, AcceptReject                  |
++-----------------------------------------------------------+
+|  FEATURE ENGINEERING LAYER (Phase 5)                      |
+|  TemplateRegistry: named feature template functions       |
+|  BoundedExecutor: dispatches DSL configs to templates     |
+|  FeatureValidator: row count, target, null checks         |
+|  DSL: 14-operator surface with time-op leakage guards     |
+|  Templates: customer, order, temporal, transforms, composites |
 +-----------------------------------------------------------+
 |  EXECUTION LAYER                                          |
 |  AutoGluonRunner, ConfigMapper, ResultParser              |
@@ -28,21 +42,54 @@
 +-----------------------------------------------------------+
 |  MEMORY LAYER                                             |
 |  RunStore: append-only session journal (decisions.jsonl)  |
-|  CaseStore: cross-session JSONL knowledge base (CaseEntry)|
-|  PreprocessingStore: cross-session preprocessing bank     |
-|  CaseRetriever: cosine similarity on TaskTraits vectors   |
-|  EmbeddingRetriever: cosine similarity on text embeddings |
-|  Distiller: LLM session → CaseEntry; embed() if available |
+|  FeatureHistoryStore: empirical experiment memory (JSONL) |
 |  ContextBuilder: assembles SearchContext briefing         |
+|  FeatureContextBuilder: assembles feature eng context     |
+|  [RETIRED] CaseStore, PreprocessingStore, EmbeddingRetriever |
 +-----------------------------------------------------------+
 |  DATA LAYER                                               |
-|  experiments/case_bank.jsonl          — CaseStore         |
-|  experiments/preprocessing_bank.jsonl — PreprocessingStore|
-|  data/seeds/preprocessing_seeds.jsonl — 5 bootstrap seeds |
+|  experiments/feature_history.jsonl — FeatureHistoryStore   |
+|  references/feature_engineering/  — static reference packs |
+|  prompts/feature_engineering/     — agent prompt assets    |
 +-----------------------------------------------------------+
 ```
 
-## Campaign Flow (Phase 4b)
+## Feature Engineering Campaign Flow (Phase 5)
+
+```
+Baseline session:
+  identity preprocessing → ExperimentSession → collect DataProfile + leaderboard
+
+Feature iteration loop:
+  FeatureContextBuilder.build(profile, leaderboard, importances, history)
+  → FeatureEngineeringAgent.propose_and_execute()
+    ├─ _decision_call → FeatureDecision (JSON)
+    ├─ _leakage_audit_call → FeatureAuditVerdict (mandatory, no bypass)
+    └─ _execute_bounded → FeatureExecutionResult (via BoundedExecutor)
+  Save featured CSV → new ExperimentSession (retrain)
+  Store FeatureHistoryEntry (empirical memory)
+  Check stop: plateau / budget / consecutive blocks
+```
+
+## Knowledge Architecture
+
+The feature engineering system uses two knowledge sources:
+
+### Empirical Experiment Memory
+- `FeatureHistoryStore` — what we tried, what happened, distilled takeaways
+- Append-only JSONL, scoped to campaigns
+- Available to the agent as context in each iteration
+
+### Static Reference Packs
+- `references/feature_engineering/ecommerce_features.md` — curated feature knowledge
+- `references/feature_engineering/leakage_patterns.md` — known leakage patterns
+- Loaded into prompts as static context, not retrieved semantically
+
+### Retired: Vector RAG
+- `CaseStore`, `PreprocessingStore`, `EmbeddingRetriever` — retained for backward compatibility with `CampaignOrchestrator` only
+- Not used by `FeatureCampaignOrchestrator`
+
+## Preprocessing Campaign Flow (Phase 4b, unchanged)
 
 ```
 Session 0 (baseline):
@@ -54,20 +101,17 @@ Session N (N ≥ 1):
     └─ generate_code → ValidationHarness (subprocess, 6 checks)
   PreprocessingExecutor (identity fallback on exec error)
   ExperimentSession → Distiller → CaseStore
-  [if validation_passed] PreprocessingEntry → PreprocessingStore
 ```
 
-## Session Flow (within each campaign session)
+## Session Flow (shared by both campaign types)
 
 ```
 1. Profile data → DataProfile
-2. Retrieve similar past cases from CaseStore (cosine similarity on TaskTraits)
-3. IdeatorAgent generates hypotheses grounded in data profile + similar cases
-4. Warm-up: run each hypothesis as root ExperimentNode
-5. Optimize: RefinerAgent reads incumbent config + leaderboard + overfitting_gap → targeted ExperimentPlan
-6. AcceptReject gates each optimization step
-7. Distiller summarises session → CaseEntry → CaseStore (+ embedding if OpenAIBackend provided)
-8. Save tree.json (Graph RAG compatible)
+2. IdeatorAgent generates hypotheses
+3. Warm-up: run each hypothesis as root ExperimentNode
+4. Optimize: RefinerAgent → targeted ExperimentPlan
+5. AcceptReject gates each optimization step
+6. Save tree.json
 ```
 
 ## Key Data Objects
@@ -77,35 +121,18 @@ Session N (N ≥ 1):
 | TaskSpec | models/task.py | Problem definition |
 | ExperimentPlan | models/task.py | Agent's proposed config (JSON) |
 | RunConfig | models/task.py | Concrete AutoGluon kwargs |
-| ExperimentRun | models/results.py | Full experiment record (config + result + diagnostics) |
-| ExperimentNode | models/nodes.py | Tree node with edge_label for Graph RAG |
-| CaseEntry | models/nodes.py | Distilled session knowledge; has `description_for_embedding` + `embedding` |
-| SearchContext | models/nodes.py | Briefing assembled for agent before each decision |
+| ExperimentRun | models/results.py | Full experiment record |
+| FeatureDecision | models/feature_engineering.py | Agent's proposed feature action |
+| FeatureSpec | models/feature_engineering.py | Discriminated union: template/transform/composite/codegen |
+| FeatureAuditVerdict | models/feature_engineering.py | Leakage audit result |
+| FeatureExecutionResult | models/feature_engineering.py | Execution outcome |
+| FeatureHistoryEntry | models/feature_engineering.py | Empirical experiment memory entry |
+| FeatureCampaignConfig | models/campaign.py | Feature campaign loop config |
 | CampaignResult | models/campaign.py | Full record of a multi-session campaign |
-| SessionSummary | models/campaign.py | Per-session result; tracks `preprocessing_validation_passed`, `preprocessing_turns_used` |
-| PreprocessingPlan | models/preprocessing.py | Agent output: identity or generated code with validation metadata |
-| PreprocessingEntry | models/preprocessing.py | Cross-session preprocessing knowledge; has `transformation_summary` + `embedding` |
 
-## Session Outputs
+## What is NOT yet built
 
-```
-experiments/{date}_{HH-MM-SS}_{task}/
-  session.log       — timestamped progress log
-  decisions.jsonl   — ExperimentRun journal (machine-readable)
-  tree.json         — ExperimentNode graph (Graph RAG compatible)
-  runs/run_XXXX/
-    training.log    — AutoGluon verbose output
-experiments/case_bank.jsonl            — cross-session CaseStore
-experiments/preprocessing_bank.jsonl   — cross-session PreprocessingStore
-experiments/campaigns/{id}_{task}/
-  campaign.json     — CampaignResult (written after each session)
-  campaign.log      — timestamped campaign log
-  preprocessing_N/  — preprocessed_data.csv for session N
-```
-
-## What is NOT yet built (Phase 5+)
-
+- Phase 2 codegen escape hatch (CodegenSandbox, codegen guardrail)
 - ReviewerAgent — post-run quality assessment
-- Optuna executor
 - Graph RAG over ExperimentNode trees
-- BaseJSONLStore[T] base class (when a 3rd store is needed — currently CaseStore, PreprocessingStore are standalone)
+- Dataset benchmark validation (UCI Online Retail, Olist, RetailRocket)

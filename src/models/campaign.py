@@ -35,6 +35,20 @@ class SessionSummary(BaseModel):
     error_message: Optional[str] = None            # set if the session raised an exception
 
 
+class FeatureCampaignConfig(BaseModel):
+    """
+    Config for the feature engineering campaign loop.
+    Uses empirical experiment memory + static reference packs — no vector RAG.
+    """
+    max_sessions: int = 10
+    max_feature_iterations: int = 10
+    plateau_threshold: float = 0.002
+    plateau_window: int = 3
+    feature_history_path: str = "experiments/feature_history.jsonl"
+    max_consecutive_blocks: int = 3
+    max_consecutive_codegen_failures: int = 2
+
+
 class CampaignResult(BaseModel):
     """
     Full record of a completed campaign.

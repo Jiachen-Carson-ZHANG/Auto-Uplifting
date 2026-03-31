@@ -1,4 +1,9 @@
 """
+RETIRED FROM ACTIVE ARCHITECTURE: This module is retained only for backward
+compatibility with CampaignOrchestrator. New feature engineering campaigns use
+empirical experiment memory (FeatureHistoryStore) plus static reference packs instead.
+See docs/plans/2026-03-30-ecommerce-feature-engineering-design.md for rationale.
+
 EmbeddingRetriever — ranks PreprocessingEntry candidates by embedding cosine similarity.
 
 Uses OpenAIBackend.embed() to embed the query text, then cosine-ranks stored entries

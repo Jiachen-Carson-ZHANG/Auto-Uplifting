@@ -1,4 +1,9 @@
 """
+RETIRED FROM ACTIVE ARCHITECTURE: This module is retained only for backward
+compatibility with CampaignOrchestrator. New feature engineering campaigns use
+empirical experiment memory (FeatureHistoryStore) plus static reference packs instead.
+See docs/plans/2026-03-30-ecommerce-feature-engineering-design.md for rationale.
+
 Append-only JSONL store for cross-session PreprocessingEntry records.
 
 Symmetric with CaseStore (case_bank.jsonl) — mirrors the same 25-line pattern.

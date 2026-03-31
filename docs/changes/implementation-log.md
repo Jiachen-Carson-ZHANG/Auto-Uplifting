@@ -1,3 +1,21 @@
+## 2026-03-31 — Phase 5: Ecommerce Feature Engineering Subsystem
+
+**What changed:**
+- Added `FeatureEngineeringAgent` with internal pipeline: decision_call → leakage_audit_call → execute_bounded. Follows refiner.py retry pattern, preprocessing_agent.py never-raises pattern.
+- Added bounded template + DSL execution path: 14 operators, 20 template functions across 5 modules (customer, order, temporal, transforms, composites). Time-based features enforce entity_key + time_col as leakage defense.
+- Added `FeatureCampaignOrchestrator` as sibling to `CampaignOrchestrator`. Runs baseline session, then iterates feature proposals with plateau/budget/block stop conditions.
+- Added `FeatureHistoryStore` (JSONL append-only) for empirical experiment memory. Static reference packs under `references/feature_engineering/` for domain knowledge.
+- Added Pydantic contracts: FeatureDecision, FeatureSpec (discriminated union), FeatureAuditVerdict, FeatureExecutionResult, FeatureHistoryEntry.
+- Retired `CaseStore`, `PreprocessingStore`, `EmbeddingRetriever` from active architecture (deprecation docstrings, not deletion — existing CampaignOrchestrator still imports them).
+
+**Why:** Replace RAG/vector retrieval with simpler split between empirical experiment memory and static reference packs. Focus on ecommerce lifecycle tasks (churn, repurchase, LTV). Bounded templates give safer leakage guarantees than broad codegen.
+
+**Tradeoff:** Less flexible than free codegen default, but deterministic bounded features with mandatory leakage audit. Codegen escape hatch (Phase 2) remains available for schemas the bounded path cannot handle.
+
+**Must remain true:** Leakage audit is mandatory before any execution path — no bypass. Existing CampaignOrchestrator and preprocessing pipeline are untouched.
+
+---
+
 ## 2026-03-22 — Phase 4c: Curated Seed Bank + Semantic Retrieval Wired End-to-End
 
 **What changed:**
