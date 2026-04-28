@@ -63,6 +63,36 @@ Next: deterministic wave runner for hypothesis-driven experiments
 
 The next implementation step is **M2a: wave contracts, deterministic wave runner, and `recipe_comparison` only**. LLM advisory calls come later, after manual waves are safe.
 
+### Teammate-Aligned Supervisor Roadmap
+
+From `Completely change our assumption and philosiphy.md`:
+
+```text
+Teammate-aligned direction
+        |
+        v
+Data ingestion + preprocessing
+        |
+        v
+Hypothesis reasoning + strategy selection
+        |
+        v
+Trial spec + feature recipe planning
+        |
+        v
+Deterministic uplift kernel
+        |
+        +--> registered templates only
+        +--> Qini / AUUC / uplift@k / policy gain
+        +--> ledger + artifacts
+        |
+        v
+Experiment memory + hypothesis verdicts
+        |
+        v
+Next: conservative UpliftResearchLoop
+```
+
 ## Repository Layout
 
 ```text
@@ -81,6 +111,30 @@ tests/
   uplift/
   integration/test_uplift_*.py
 ```
+
+## What Is In This Repo So Far
+
+The repo currently contains the deterministic uplift kernel and the first hypothesis-memory layer. The files under `src/` are the reusable project code:
+
+- `src/models/uplift.py`: Pydantic contracts for RetailHero table paths, split policy, evaluation policy, feature recipes, feature artifacts, trial specs, result cards, ledger records, submission artifacts, and pointer-only hypotheses.
+- `src/uplift/validation.py`: dataset validation, treatment/control balance diagnostics, and stratification feasibility checks.
+- `src/uplift/features.py`: deterministic customer-level feature builder from `clients.csv` and `purchases.csv`, including cached feature artifact metadata.
+- `src/uplift/splitting.py`: labeled train/validation/test splitting from `uplift_train.csv` only.
+- `src/uplift/metrics.py`: Qini curve/AUC, uplift curve/AUC, uplift@k, decile tables, and policy-gain helpers.
+- `src/uplift/templates.py`: registered baseline learners: random, response model, two-model uplift, and solo-model uplift.
+- `src/uplift/loop.py`: deterministic trial runner that executes registered templates, writes prediction/curve/decile/result artifacts, and appends ledger records.
+- `src/uplift/ledger.py`: JSONL ledger for trial-level evidence.
+- `src/uplift/reporting.py`: markdown report generation plus final `client_id,uplift` submission generation and validation.
+- `src/uplift/planner.py`: guarded advisory planner/reporting path; it can suggest from allowed structures but cannot change contract semantics.
+- `src/uplift/hypotheses.py`: hypothesis lifecycle helpers and a JSONL-backed `UpliftHypothesisStore`.
+
+The `demos/` folder contains teammate-facing commands that exercise the kernel without needing to read the internals:
+
+- `demos/uplift_validate_dataset.py`: validates the RetailHero-style files and prints schema/balance diagnostics.
+- `demos/uplift_build_features.py`: builds cached customer-level feature artifacts for train, scoring, or all cohorts.
+- `demos/uplift_run_baselines.py`: builds features, runs the baseline ladder, writes ledger/artifacts/report/submission outputs, and prints a summary.
+
+The `tests/` folder keeps a tiny RetailHero-like fixture dataset and regression coverage for contracts, validation, feature building, metrics, baselines, ledger records, reports, submissions, hypotheses, and demo scripts.
 
 ## Setup
 
