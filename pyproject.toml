@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bt5153-agentic-uplift"
+version = "0.1.0"
+description = "Contract-driven uplift modeling kernel and supervisor foundation for the BT5153 RetailHero project."
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.0.0",
+  "pandas>=2.0.0",
+  "numpy>=1.26.0",
+  "scikit-learn>=1.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+  ".git",
+  ".venv",
+  "artifacts",
+  "retailhero-uplift",
+]
+addopts = "-ra"

@@ -1,0 +1,5 @@
+client_id,transaction_id,transaction_datetime,regular_points_received,express_points_received,regular_points_spent,express_points_spent,purchase_sum,store_id,product_id,product_quantity,trn_sum_from_iss,trn_sum_from_red
+c001,t001,2019-01-01 12:00:00,1.0,0.0,0.0,0.0,100.0,store1,p001,1.0,100.0,
+c002,t002,2019-01-02 12:00:00,2.0,0.0,0.0,0.0,200.0,store1,p002,2.0,200.0,
+c003,t003,2019-01-03 12:00:00,1.0,0.0,0.0,0.0,150.0,store2,p001,1.0,150.0,
+c004,t004,2019-01-04 12:00:00,3.0,0.0,0.0,0.0,300.0,store2,p002,3.0,300.0,

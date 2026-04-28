@@ -1,1 +1,0 @@
-"""Ecommerce feature template functions."""

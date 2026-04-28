@@ -1,0 +1,3 @@
+product_id,level_1,level_2,level_3,level_4,segment_id,brand_id,vendor_id,netto,is_own_trademark,is_alcohol
+p001,l1a,l2a,l3a,l4a,1,b001,v001,0.5,0,0
+p002,l1b,l2b,l3b,l4b,2,b002,v002,1.0,1,0
