@@ -12,11 +12,28 @@ dependencies = [
   "pandas>=2.0.0",
   "numpy>=1.26.0",
   "scikit-learn>=1.3.0",
+  "xgboost>=2.0.0",
+  "lightgbm>=4.0.0",
+  "scikit-uplift>=0.5.1",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0.0",
+]
+llm = [
+  "openai>=1.30.0",
+  "anthropic>=0.30.0",
+  "google-generativeai>=0.7.0",
+]
+xai = [
+  "shap>=0.44.0",
+]
+all = [
+  "openai>=1.30.0",
+  "anthropic>=0.30.0",
+  "google-generativeai>=0.7.0",
+  "shap>=0.44.0",
 ]
 
 [tool.setuptools.packages.find]
