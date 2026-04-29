@@ -24,28 +24,89 @@ _SKILLS_DIR = Path(__file__).parent / "skills"
 
 
 def _load_skill(name: str) -> str:
+    """Load a skill prompt strictly. Missing files are a configuration bug."""
     path = _SKILLS_DIR / f"{name}.md"
     if not path.exists():
-        return name.replace("_", " ")
+        raise FileNotFoundError(
+            f"Required skill prompt is missing: {path}. "
+            f"Add the file or remove the agent that requires it."
+        )
     text = path.read_text(encoding="utf-8")
     match = re.search(r"## System Prompt\s*\n+```[^\n]*\n(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else text.strip()
 
 
-def _parse_json(text: str) -> dict:
+def _parse_json_strict(text: str) -> dict:
+    """Strict JSON parse: returns a dict or raises ValueError. No silent fallback."""
     stripped = text.strip()
     stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
     stripped = re.sub(r"\s*```$", "", stripped)
     try:
-        return json.loads(stripped)
-    except json.JSONDecodeError:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
         match = re.search(r"\{.*\}", stripped, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                return {}
-    return {}
+        if not match:
+            raise ValueError(f"no JSON object found in LLM output: {exc}") from exc
+        try:
+            payload = json.loads(match.group())
+        except json.JSONDecodeError as inner:
+            raise ValueError(f"invalid JSON in LLM output: {inner}") from inner
+    if not isinstance(payload, dict):
+        raise ValueError("LLM JSON payload must be an object")
+    return payload
+
+
+def _call_llm_strict(
+    llm: ChatLLM,
+    system: str,
+    user: str,
+    *,
+    max_retries: int = 1,
+) -> dict:
+    """Call ``llm`` and parse strict JSON; retry once on parse failure."""
+    last_error: Exception | None = None
+    for _ in range(max_retries + 1):
+        try:
+            return _parse_json_strict(llm(system, user))
+        except ValueError as exc:
+            last_error = exc
+    raise ValueError(
+        f"LLM did not return valid JSON after {max_retries + 1} attempts: {last_error}"
+    ) from last_error
+
+
+_VERDICT_RANK: dict[str, int] = {"contradicted": 0, "inconclusive": 1, "supported": 2}
+
+
+def _verdict_ceiling(metrics: dict, trial_status: str = "success") -> str:
+    """Most permissive verdict deterministic evidence allows for the trial.
+
+    Failed trials provide no evidence either way, so the ceiling is ``inconclusive``.
+    Negative qini metrics cap the ceiling at ``contradicted``. A clearly positive
+    qini allows ``supported``; otherwise the ceiling is ``inconclusive``.
+    """
+    if trial_status != "success":
+        return "inconclusive"
+    qini = metrics.get("qini_auc")
+    if not isinstance(qini, (int, float)) or (isinstance(qini, float) and qini != qini):
+        return "inconclusive"
+    if qini <= -0.01:
+        return "contradicted"
+    if qini >= 0.05:
+        return "supported"
+    return "inconclusive"
+
+
+def _bound_verdict(llm_verdict: str, ceiling: str, trial_status: str = "success") -> str:
+    """Clamp the LLM verdict to be no more optimistic than deterministic evidence."""
+    if trial_status != "success":
+        # Failed trials carry no evidence; force inconclusive regardless of LLM claim.
+        return "inconclusive"
+    if llm_verdict not in _VERDICT_RANK:
+        return ceiling
+    if _VERDICT_RANK[llm_verdict] <= _VERDICT_RANK[ceiling]:
+        return llm_verdict
+    return ceiling
 
 
 def _scores_to_arrays(scores_df: pd.DataFrame):
@@ -79,6 +140,7 @@ class UpliftEvaluationJudge:
             "uplift_at_10pct": uplift_at_k(y_true, treatment, uplift, k=0.10),
             "uplift_at_20pct": uplift_at_k(y_true, treatment, uplift, k=0.20),
         }
+        trial_status = trial_meta.get("trial_status", "success")
         champion_block = (
             {
                 "qini_auc": prior_champion.qini_auc,
@@ -88,8 +150,9 @@ class UpliftEvaluationJudge:
             if prior_champion is not None
             else "None - first run."
         )
-        parsed = _parse_json(
-            self.llm(
+        try:
+            parsed = _call_llm_strict(
+                self.llm,
                 self._SKILL,
                 json.dumps(
                     {
@@ -101,8 +164,16 @@ class UpliftEvaluationJudge:
                     sort_keys=True,
                 ),
             )
-        )
-        parsed.setdefault("verdict", "inconclusive")
+        except ValueError:
+            # Judge narrative is supporting context. The deterministic ceiling
+            # below remains authoritative even when the LLM is unavailable.
+            parsed = {}
+        # Deterministic constraint: the LLM cannot promote a verdict beyond
+        # what the trial's qini_auc supports. Failed trials force inconclusive.
+        ceiling = _verdict_ceiling(metrics, trial_status)
+        proposed = parsed.get("verdict", ceiling)
+        parsed["verdict"] = _bound_verdict(proposed, ceiling, trial_status)
+        parsed["deterministic_verdict_ceiling"] = ceiling
         parsed["computed_metrics"] = metrics
         parsed["trial_id"] = trial_meta.get("trial_id") or trial_meta.get("spec_id")
         return parsed
@@ -159,8 +230,9 @@ class UpliftXAIReasoner:
             }
 
         leakage = check_leakage_signals(shap_result)
-        parsed = _parse_json(
-            self.llm(
+        try:
+            parsed = _call_llm_strict(
+                self.llm,
                 self._SKILL,
                 json.dumps(
                     {
@@ -173,8 +245,12 @@ class UpliftXAIReasoner:
                     sort_keys=True,
                 ),
             )
-        )
+        except ValueError:
+            # XAI narrative is informational; the deterministic SHAP/leakage
+            # signals below remain authoritative.
+            parsed = {}
         parsed["shap_raw"] = shap_result
+        parsed["leakage_auto_flag"] = leakage
         parsed["trial_id"] = trial_id
         parsed["skipped"] = False
         return parsed
@@ -245,8 +321,9 @@ class UpliftPolicyAdvisor:
             revenue_per_conversion=revenue_per_conversion,
             budget=budget,
         )
-        parsed = _parse_json(
-            self.llm(
+        try:
+            parsed = _call_llm_strict(
+                self.llm,
                 self._SKILL,
                 json.dumps(
                     {
@@ -260,7 +337,10 @@ class UpliftPolicyAdvisor:
                     sort_keys=True,
                 ),
             )
-        )
+        except ValueError:
+            # Policy narrative is informational; the deterministic policy_data
+            # below remains the source of truth for threshold and segments.
+            parsed = {}
         parsed.setdefault("recommended_threshold", policy_data["elbow_threshold_pct"])
         parsed["policy_data"] = policy_data
         parsed["trial_id"] = trial_meta.get("trial_id") or trial_meta.get("spec_id")
@@ -277,8 +357,15 @@ def run_evaluation_phase(
     coupon_cost: float = 1.0,
     revenue_per_conversion: float = 10.0,
     budget: float | None = None,
+    trial_status: str = "success",
 ) -> dict:
-    """Run PR2 Judge, XAI, and Policy agents for one completed trial."""
+    """Run PR2 Judge, XAI, and Policy agents for one completed trial.
+
+    The judge's verdict is bounded by the deterministic ``trial_status`` and
+    the qini-based ceiling computed from ``scores_df``. Failed trials always
+    receive an ``inconclusive`` verdict regardless of the LLM narrative.
+    """
+    trial_meta = {**trial_meta, "trial_status": trial_status}
     records = ledger.load()
     champion = max(
         (record for record in records if record.status == "success" and record.qini_auc is not None),

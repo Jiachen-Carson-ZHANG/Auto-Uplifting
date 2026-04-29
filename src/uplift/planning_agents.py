@@ -12,13 +12,20 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from src.models.uplift import UpliftExperimentRecord, UpliftHypothesis
+from typing import get_args
+
+from src.models.uplift import (
+    UpliftActionType,
+    UpliftExperimentRecord,
+    UpliftHypothesis,
+)
 from src.uplift.hypotheses import UpliftHypothesisStore, transition_hypothesis
 from src.uplift.ledger import UpliftLedger
 from src.uplift.llm_client import ChatLLM
 from src.uplift.templates import REGISTERED_UPLIFT_TEMPLATES
 
 _SKILLS_DIR = Path(__file__).parent / "skills"
+_VALID_ACTION_TYPES: frozenset[str] = frozenset(get_args(UpliftActionType))
 
 _ESTIMATOR_DEFAULTS: dict[str, dict[str, Any]] = {
     "logistic_regression": {"C": 1.0, "max_iter": 1000},
@@ -50,6 +57,7 @@ class HypothesisDecision:
     hypothesis: str
     evidence: str
     confidence: float
+    experiment_action_type: str = "recipe_comparison"
 
 
 @dataclass
@@ -81,28 +89,60 @@ class PlanningTrialSpec:
 
 
 def _load_skill(name: str) -> str:
+    """Load a skill prompt strictly. Missing files are a configuration bug, not a soft fallback."""
     path = _SKILLS_DIR / f"{name}.md"
     if not path.exists():
-        return name.replace("_", " ")
+        raise FileNotFoundError(
+            f"Required skill prompt is missing: {path}. "
+            f"Add the file or remove the agent that requires it."
+        )
     text = path.read_text(encoding="utf-8")
     match = re.search(r"## System Prompt\s*\n+```[^\n]*\n(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else text.strip()
 
 
-def _parse_json(text: str) -> dict:
+def _parse_json_strict(text: str) -> dict:
+    """Strict JSON parse: returns a dict or raises ValueError. No silent fallback."""
     stripped = text.strip()
     stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
     stripped = re.sub(r"\s*```$", "", stripped)
     try:
-        return json.loads(stripped)
-    except json.JSONDecodeError:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
         match = re.search(r"\{.*\}", stripped, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                return {}
-    return {}
+        if not match:
+            raise ValueError(f"no JSON object found in LLM output: {exc}") from exc
+        try:
+            payload = json.loads(match.group())
+        except json.JSONDecodeError as inner:
+            raise ValueError(f"invalid JSON in LLM output: {inner}") from inner
+    if not isinstance(payload, dict):
+        raise ValueError("LLM JSON payload must be an object")
+    return payload
+
+
+def _call_llm_strict(
+    llm: ChatLLM,
+    system: str,
+    user: str,
+    *,
+    max_retries: int = 1,
+) -> dict:
+    """Call ``llm`` and parse its output as strict JSON; retry once on parse failure.
+
+    On exhausted retries, raise ``ValueError``. Callers that can degrade gracefully
+    should wrap this in their own try/except. Callers that produce executable trial
+    specs should let the exception propagate.
+    """
+    last_error: Exception | None = None
+    for _ in range(max_retries + 1):
+        try:
+            return _parse_json_strict(llm(system, user))
+        except ValueError as exc:
+            last_error = exc
+    raise ValueError(
+        f"LLM did not return valid JSON after {max_retries + 1} attempts: {last_error}"
+    ) from last_error
 
 
 class CaseRetrievalAgent:
@@ -126,8 +166,12 @@ class CaseRetrievalAgent:
                 summary="Cold start. No prior uplift trials are available.",
             )
 
-        raw = self.llm(self._SKILL, json.dumps([_record_summary(r) for r in records]))
-        parsed = _parse_json(raw)
+        user_msg = json.dumps([_record_summary(r) for r in records])
+        try:
+            parsed = _call_llm_strict(self.llm, self._SKILL, user_msg)
+        except ValueError:
+            # Case retrieval is informational; failure must not block planning.
+            parsed = {}
         return RetrievedContext(
             similar_recipes=parsed.get("similar_recipes", []),
             supported_hypotheses=parsed.get("supported_hypotheses", []),
@@ -163,12 +207,20 @@ class HypothesisReasoningAgent:
             },
             sort_keys=True,
         )
-        parsed = _parse_json(self.llm(self._SKILL, user_msg))
+        # Strict parsing: hypothesis reasoning drives downstream trial specs,
+        # so silent JSON failure would produce a garbage trial. Retry once,
+        # then propagate.
+        parsed = _call_llm_strict(self.llm, self._SKILL, user_msg)
+        raw_action_type = parsed.get("experiment_action_type", "recipe_comparison")
+        experiment_action_type = (
+            raw_action_type if raw_action_type in _VALID_ACTION_TYPES else "recipe_comparison"
+        )
         decision = HypothesisDecision(
             action=parsed.get("action", "propose"),
             hypothesis=parsed.get("hypothesis", current_hypothesis or ""),
             evidence=parsed.get("evidence", ""),
             confidence=float(parsed.get("confidence", 0.5)),
+            experiment_action_type=experiment_action_type,
         )
         self._sync_hypothesis_store(decision)
         return decision
@@ -189,7 +241,7 @@ class HypothesisReasoningAgent:
                 question=decision.hypothesis,
                 hypothesis_text=decision.hypothesis,
                 stage_origin="llm",
-                action_type="recipe_comparison",
+                action_type=decision.experiment_action_type,
                 expected_signal=decision.evidence or "improved qini_auc",
                 status="proposed",
             )
@@ -227,19 +279,20 @@ class UpliftStrategySelectionAgent:
 
         mean_qini = _mean_qini_by_family(successful)
         best_family = max(mean_qini, key=mean_qini.get)
-        parsed = _parse_json(
-            self.llm(
-                self._SKILL,
-                json.dumps(
-                    {
-                        "mean_qini_by_family": mean_qini,
-                        "best_family_so_far": best_family,
-                        "context_summary": context.summary,
-                        "active_hypothesis": hypothesis.hypothesis,
-                    },
-                    sort_keys=True,
-                ),
-            )
+        # Strict parsing: strategy selection is the contract for which template
+        # the trial executes. A garbage default would silently pick the wrong runner.
+        parsed = _call_llm_strict(
+            self.llm,
+            self._SKILL,
+            json.dumps(
+                {
+                    "mean_qini_by_family": mean_qini,
+                    "best_family_so_far": best_family,
+                    "context_summary": context.summary,
+                    "active_hypothesis": hypothesis.hypothesis,
+                },
+                sort_keys=True,
+            ),
         )
         family = _safe_learner_family(parsed.get("learner_family", best_family), best_family)
         estimator = parsed.get("base_estimator", "logistic_regression")
@@ -274,21 +327,21 @@ class TrialSpecWriterAgent:
         estimator_params: dict[str, Any],
     ) -> PlanningTrialSpec:
         trial_id = f"UT-{uuid.uuid4().hex[:6]}"
-        parsed = _parse_json(
-            self.llm(
-                self._SKILL,
-                json.dumps(
-                    {
-                        "trial_id": trial_id,
-                        "active_hypothesis": hypothesis.hypothesis,
-                        "hypothesis_action": hypothesis.action,
-                        "evidence": hypothesis.evidence,
-                        "strategy": asdict(strategy),
-                        "estimator_params": estimator_params,
-                    },
-                    sort_keys=True,
-                ),
-            )
+        # Strict parsing: trial spec output feeds directly into run_uplift_trials.
+        parsed = _call_llm_strict(
+            self.llm,
+            self._SKILL,
+            json.dumps(
+                {
+                    "trial_id": trial_id,
+                    "active_hypothesis": hypothesis.hypothesis,
+                    "hypothesis_action": hypothesis.action,
+                    "evidence": hypothesis.evidence,
+                    "strategy": asdict(strategy),
+                    "estimator_params": estimator_params,
+                },
+                sort_keys=True,
+            ),
         )
         return PlanningTrialSpec(
             trial_id=trial_id,

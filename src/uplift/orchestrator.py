@@ -345,6 +345,7 @@ class AutoLiftOrchestrator:
                         if "model" in record.artifact_paths
                         else None,
                         features_df=features,
+                        trial_status=record.status,
                     )
                 )
             retry = RetryControllerAgent(self.ledger).run()
