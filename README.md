@@ -38,6 +38,80 @@ Not included in this cleaned BT5153 repo:
 
 For the teammate-aligned planning notes, see `teammate-aligned-uplift-roadmap.md`.
 
+## Current Architecture Pipeline
+
+```mermaid
+flowchart TD
+    subgraph data["RetailHero data (local only)"]
+        clients["clients.csv"]
+        purchases["purchases.csv"]
+        products["products.csv"]
+        train["uplift_train.csv"]
+        scoring["uplift_test.csv"]
+    end
+
+    contract["UpliftProjectContract\nschema, split, metric, submission semantics"]
+    validation["Validation and balance diagnostics\nvalidate_uplift_dataset\ncompute_treatment_control_balance"]
+    registry["Approved feature recipe registry\nbase, rfm, windowed, engagement,\nproduct_category, diversity"]
+    feature_builder["Feature builder\nbuild_feature_table"]
+    train_features["Cached train feature artifact\ncustomer-level features only"]
+    scoring_features["Cached scoring feature artifact\nno target or treatment columns"]
+
+    demos["Demo/manual specs\nuplift_run_baselines.py"]
+    planning["PR2 planning phase\ncase retrieval -> hypothesis -> strategy -> trial spec"]
+    advisory["Guarded advisory calls\ndiagnosis -> wave plan -> verdict/report"]
+    supervisor["Manual supervisor waves\nrecipe comparison, window sweep,\nfeature ablation, feature expansion,\nranking stability, cost sensitivity"]
+
+    loop["Deterministic trial loop\nrun_uplift_trials"]
+    splitter["Train/validation/test split\nfrom uplift_train.csv only"]
+    templates["Registered uplift templates\nrandom, response, two-model,\nsolo-model, class transformation,\nsklearn/optional booster variants"]
+    metrics["Metric and policy artifacts\nQini AUC, uplift AUC, uplift@k,\ndeciles, policy gain"]
+    ledger["JSONL experiment ledger\nrecords run IDs and artifact paths"]
+
+    evaluation["PR2 evaluation phase\njudge -> XAI -> policy advisor"]
+    robustness["Robustness diagnostics\nranking stability, top-k overlap,\npolicy cutoff stability"]
+    stop_policy["Deterministic stop policy\nsupported, contradicted, inconclusive"]
+    hypotheses["Pointer-only hypothesis store"]
+    reporting["Reports and final artifacts\nmarkdown report + client_id,uplift submission"]
+
+    clients --> contract
+    purchases --> contract
+    products --> contract
+    train --> contract
+    scoring --> contract
+    contract --> validation
+    validation --> registry
+    registry --> feature_builder
+    contract --> feature_builder
+    feature_builder --> train_features
+    feature_builder --> scoring_features
+
+    demos --> loop
+    planning --> loop
+    advisory --> supervisor
+    supervisor --> loop
+
+    train_features --> loop
+    contract --> loop
+    loop --> splitter
+    splitter --> templates
+    templates --> metrics
+    metrics --> ledger
+
+    ledger --> evaluation
+    ledger --> robustness
+    ledger --> stop_policy
+    ledger --> reporting
+    evaluation --> reporting
+    robustness --> stop_policy
+    stop_policy --> hypotheses
+    hypotheses --> planning
+    scoring_features --> reporting
+    templates --> reporting
+
+    contract -. "immutable guardrail:\nLLM/advisory cannot change target,\ntreatment, split, metric, or submission rules" .-> advisory
+```
+
 ## What Is In This Repo So Far
 
 The repo currently contains the deterministic uplift kernel and the first hypothesis-memory layer. The files under `src/` are the reusable project code:
