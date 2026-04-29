@@ -1,6 +1,7 @@
 """Deterministic uplift trial execution loop."""
 from __future__ import annotations
 
+import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -15,7 +16,7 @@ from src.models.uplift import (
 )
 from src.uplift.ledger import UpliftLedger
 from src.uplift.splitting import split_labeled_uplift_frame
-from src.uplift.templates import run_uplift_template
+from src.uplift.templates import FittedUpliftModel, run_uplift_template
 
 
 @dataclass(frozen=True)
@@ -55,16 +56,21 @@ def _write_trial_artifacts(
     held_out_decile_table: pd.DataFrame | None = None,
     held_out_qini_curve: pd.DataFrame | None = None,
     held_out_uplift_curve: pd.DataFrame | None = None,
+    model: FittedUpliftModel | None = None,
 ) -> dict[str, str]:
     trial_dir.mkdir(parents=True, exist_ok=True)
     paths = {
         "predictions": str(trial_dir / "predictions.csv"),
+        "uplift_scores": str(trial_dir / "uplift_scores.csv"),
         "decile_table": str(trial_dir / "decile_table.csv"),
         "qini_curve": str(trial_dir / "qini_curve.csv"),
         "uplift_curve": str(trial_dir / "uplift_curve.csv"),
         "result_card": str(trial_dir / "result_card.json"),
     }
     predictions.to_csv(paths["predictions"], index=False)
+    entity_key = predictions.columns[0]
+    score_columns = [entity_key, "uplift", "treatment_flg", "target"]
+    predictions[score_columns].to_csv(paths["uplift_scores"], index=False)
     decile_table.to_csv(paths["decile_table"], index=False)
     qini_curve.to_csv(paths["qini_curve"], index=False)
     uplift_curve.to_csv(paths["uplift_curve"], index=False)
@@ -82,6 +88,10 @@ def _write_trial_artifacts(
     if held_out_uplift_curve is not None:
         paths["held_out_uplift_curve"] = str(trial_dir / "held_out_uplift_curve.csv")
         held_out_uplift_curve.to_csv(paths["held_out_uplift_curve"], index=False)
+    if model is not None:
+        paths["model"] = str(trial_dir / "model.pkl")
+        with Path(paths["model"]).open("wb") as handle:
+            pickle.dump(model, handle)
     return paths
 
 
@@ -97,23 +107,33 @@ def run_uplift_trials(
     output.mkdir(parents=True, exist_ok=True)
     ledger = UpliftLedger(output / "uplift_ledger.jsonl")
     labeled = _labeled_feature_frame(contract, feature_artifact)
-    split = split_labeled_uplift_frame(labeled, contract)
-
-    # Validation drives champion selection. The test partition (when present) is held out
-    # for an honest generalization estimate scored from the same fitted model. When no
-    # test partition is configured, validation is the only evaluation surface.
-    if not split.validation.empty:
-        eval_df = split.validation
-        held_out_df: pd.DataFrame | None = split.test if not split.test.empty else None
-    else:
-        eval_df = split.test
-        held_out_df = None
 
     records: List[UpliftExperimentRecord] = []
 
     for spec in trial_specs:
         trial_dir = output / spec.spec_id
         try:
+            split_contract = contract.split_contract.model_copy(
+                update={"random_seed": spec.split_seed}
+            )
+            trial_contract = contract.model_copy(
+                update={"split_contract": split_contract}
+            )
+            split = split_labeled_uplift_frame(labeled, trial_contract)
+
+            # Validation drives champion selection. The test partition (when present)
+            # is held out for an honest generalization estimate scored from the same
+            # fitted model. When no test partition is configured, validation is the
+            # only evaluation surface.
+            if not split.validation.empty:
+                eval_df = split.validation
+                held_out_df: pd.DataFrame | None = (
+                    split.test if not split.test.empty else None
+                )
+            else:
+                eval_df = split.test
+                held_out_df = None
+
             template_output = run_uplift_template(
                 spec,
                 train_df=split.train,
@@ -135,6 +155,7 @@ def run_uplift_trials(
                 held_out_decile_table=template_output.held_out_decile_table,
                 held_out_qini_curve=template_output.held_out_qini_curve,
                 held_out_uplift_curve=template_output.held_out_uplift_curve,
+                model=template_output.model,
             )
             record = ledger.append_result(
                 trial_spec=spec,

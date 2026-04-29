@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Literal, Optional, Sequence
@@ -126,11 +127,7 @@ def _build_client_features(
     client_df["age_clean"] = age.where(valid_age, -1).fillna(-1).astype(float)
 
     issue_date = pd.to_datetime(client_df.get("first_issue_date"), errors="coerce")
-    redeem_date = pd.to_datetime(client_df.get("first_redeem_date"), errors="coerce")
-    delay_days = (redeem_date - issue_date).dt.total_seconds() / 86_400
-
-    client_df["redeem_missing_flag"] = redeem_date.isna().astype(int)
-    client_df["issue_redeem_delay_days"] = delay_days.fillna(-1).round(3)
+    client_df["issue_date_missing_flag"] = issue_date.isna().astype(int)
     client_df["issue_year"] = issue_date.dt.year.fillna(-1).astype(int)
     client_df["issue_month"] = issue_date.dt.month.fillna(-1).astype(int)
 
@@ -145,8 +142,7 @@ def _build_client_features(
             entity_key,
             "age_clean",
             "age_invalid_flag",
-            "redeem_missing_flag",
-            "issue_redeem_delay_days",
+            "issue_date_missing_flag",
             "issue_year",
             "issue_month",
             "gender_F",
@@ -155,6 +151,40 @@ def _build_client_features(
             "gender_other",
         ]
     ]
+
+
+def _issue_dates_by_customer(
+    clients: pd.DataFrame,
+    *,
+    entity_key: str,
+) -> pd.Series:
+    if "first_issue_date" not in clients.columns:
+        return pd.Series(dtype="datetime64[ns]")
+    issue_dates = clients[[entity_key, "first_issue_date"]].copy()
+    issue_dates[entity_key] = issue_dates[entity_key].astype(str)
+    issue_dates["first_issue_date"] = pd.to_datetime(
+        issue_dates["first_issue_date"],
+        errors="coerce",
+    )
+    return issue_dates.drop_duplicates(entity_key).set_index(entity_key)["first_issue_date"]
+
+
+def _filter_pre_issue_transactions(
+    transactions: pd.DataFrame,
+    issue_dates: pd.Series,
+    *,
+    entity_key: str,
+) -> pd.DataFrame:
+    if transactions.empty or issue_dates.empty:
+        return transactions
+    filtered = transactions.copy()
+    filtered[entity_key] = filtered[entity_key].astype(str)
+    filtered["__first_issue_date__"] = filtered[entity_key].map(issue_dates)
+    tx_time = pd.to_datetime(filtered["transaction_datetime"], errors="coerce")
+    keep = filtered["__first_issue_date__"].isna() | (
+        tx_time < filtered["__first_issue_date__"]
+    )
+    return filtered.loc[keep].drop(columns=["__first_issue_date__"])
 
 
 def _read_purchase_transactions(
@@ -240,6 +270,42 @@ def _read_purchase_transactions(
     )
 
 
+def _read_product_purchase_lines(
+    purchases_path: str,
+    *,
+    entity_key: str,
+    expected_ids: Sequence[str],
+    chunksize: int,
+) -> pd.DataFrame:
+    cohort_ids = set(expected_ids)
+    usecols = [
+        entity_key,
+        "transaction_datetime",
+        "product_id",
+        "product_quantity",
+    ]
+    chunks: List[pd.DataFrame] = []
+
+    for chunk in pd.read_csv(purchases_path, usecols=usecols, chunksize=chunksize):
+        chunk[entity_key] = chunk[entity_key].astype(str)
+        chunk = chunk[chunk[entity_key].isin(cohort_ids)]
+        if chunk.empty:
+            continue
+        chunk["transaction_datetime"] = pd.to_datetime(
+            chunk["transaction_datetime"],
+            errors="coerce",
+        )
+        chunk["product_id"] = chunk["product_id"].astype(str)
+        chunk["product_quantity"] = pd.to_numeric(
+            chunk["product_quantity"], errors="coerce"
+        ).fillna(0.0)
+        chunks.append(chunk)
+
+    if not chunks:
+        return pd.DataFrame(columns=usecols)
+    return pd.concat(chunks, ignore_index=True)
+
+
 def _aggregate_transactions(
     transactions: pd.DataFrame,
     *,
@@ -282,19 +348,27 @@ def _aggregate_transactions(
     )
     grouped = base.merge(grouped, on=entity_key, how="left")
 
-    count = grouped["purchase_txn_count"].fillna(0)
-    purchase_sum = grouped["purchase_sum"].fillna(0.0)
-    basket_quantity = grouped["basket_quantity"].fillna(0.0)
+    count = pd.to_numeric(
+        grouped["purchase_txn_count"], errors="coerce"
+    ).fillna(0.0)
+    purchase_sum = pd.to_numeric(
+        grouped["purchase_sum"], errors="coerce"
+    ).fillna(0.0)
+    basket_quantity = pd.to_numeric(
+        grouped["basket_quantity"], errors="coerce"
+    ).fillna(0.0)
+    nonzero_count = count.where(count != 0)
+    nonzero_purchase_sum = purchase_sum.where(purchase_sum != 0)
 
     result = pd.DataFrame({entity_key: grouped[entity_key]})
     result[f"purchase_txn_count_{suffix}"] = count.astype(int)
     result[f"purchase_sum_{suffix}"] = purchase_sum.round(6)
     result[f"avg_transaction_value_{suffix}"] = (
-        purchase_sum / count.replace(0, pd.NA)
+        purchase_sum / nonzero_count
     ).fillna(0.0).round(6)
     result[f"basket_quantity_{suffix}"] = basket_quantity.round(6)
     result[f"avg_basket_quantity_{suffix}"] = (
-        basket_quantity / count.replace(0, pd.NA)
+        basket_quantity / nonzero_count
     ).fillna(0.0).round(6)
 
     if reference_date is None:
@@ -306,15 +380,19 @@ def _aggregate_transactions(
         recency = recency.fillna(-1.0)
     result[f"recency_days_{suffix}"] = recency.round(3)
 
-    points_received = grouped["points_received_total"].fillna(0.0)
-    points_spent = grouped["points_spent_total"].fillna(0.0)
+    points_received = pd.to_numeric(
+        grouped["points_received_total"], errors="coerce"
+    ).fillna(0.0)
+    points_spent = pd.to_numeric(
+        grouped["points_spent_total"], errors="coerce"
+    ).fillna(0.0)
     result[f"points_received_total_{suffix}"] = points_received.round(6)
     result[f"points_spent_total_{suffix}"] = points_spent.round(6)
     result[f"points_received_to_purchase_ratio_{suffix}"] = (
-        points_received / purchase_sum.replace(0, pd.NA)
+        points_received / nonzero_purchase_sum
     ).fillna(0.0).round(6)
     result[f"points_spent_to_purchase_ratio_{suffix}"] = (
-        points_spent / purchase_sum.replace(0, pd.NA)
+        points_spent / nonzero_purchase_sum
     ).fillna(0.0).round(6)
 
     return result
@@ -325,6 +403,7 @@ def _build_purchase_features(
     *,
     recipe: UpliftFeatureRecipeSpec,
     expected_ids: Sequence[str],
+    clients: pd.DataFrame,
     chunksize: int,
 ) -> tuple[pd.DataFrame, Optional[str]]:
     entity_key = contract.entity_key
@@ -333,6 +412,11 @@ def _build_purchase_features(
         entity_key=entity_key,
         expected_ids=expected_ids,
         chunksize=chunksize,
+    )
+    transactions = _filter_pre_issue_transactions(
+        transactions,
+        _issue_dates_by_customer(clients, entity_key=entity_key),
+        entity_key=entity_key,
     )
 
     if recipe.reference_date is not None:
@@ -391,6 +475,175 @@ def _build_purchase_features(
     return feature_df, reference_date_str
 
 
+def _entropy_by_quantity(frame: pd.DataFrame, category_column: str) -> float:
+    if frame.empty or category_column not in frame.columns:
+        return 0.0
+    grouped = frame.groupby(category_column, dropna=False)["product_quantity"].sum()
+    total = float(grouped.sum())
+    if total <= 0:
+        return 0.0
+    entropy = 0.0
+    for value in grouped:
+        share = float(value) / total
+        if share > 0:
+            entropy -= share * math.log(share)
+    return round(entropy, 6)
+
+
+def _empty_product_features(
+    *,
+    entity_key: str,
+    expected_ids: Sequence[str],
+    include_diversity: bool,
+) -> pd.DataFrame:
+    result = pd.DataFrame({entity_key: list(expected_ids)})
+    result["product_unique_count_lifetime"] = 0
+    result["product_level_1_unique_count_lifetime"] = 0
+    result["product_segment_unique_count_lifetime"] = 0
+    result["product_brand_unique_count_lifetime"] = 0
+    result["product_purchase_quantity_lifetime"] = 0.0
+    result["own_trademark_quantity_share_lifetime"] = 0.0
+    result["alcohol_quantity_share_lifetime"] = 0.0
+    if include_diversity:
+        result["product_level_1_entropy_lifetime"] = 0.0
+        result["product_brand_entropy_lifetime"] = 0.0
+    return result
+
+
+def _build_product_features(
+    contract: UpliftProjectContract,
+    *,
+    recipe: UpliftFeatureRecipeSpec,
+    expected_ids: Sequence[str],
+    clients: pd.DataFrame,
+    chunksize: int,
+    reference_date: Optional[str],
+) -> tuple[pd.DataFrame, Optional[str]]:
+    products_path = contract.table_schema.products_table
+    if not products_path:
+        raise ValueError("product/category features require products_table")
+
+    include_diversity = "diversity" in recipe.feature_groups
+    lines = _read_product_purchase_lines(
+        contract.table_schema.purchases_table,
+        entity_key=contract.entity_key,
+        expected_ids=expected_ids,
+        chunksize=chunksize,
+    )
+    lines = _filter_pre_issue_transactions(
+        lines,
+        _issue_dates_by_customer(clients, entity_key=contract.entity_key),
+        entity_key=contract.entity_key,
+    )
+    if reference_date is not None:
+        ref = pd.Timestamp(datetime.fromisoformat(reference_date))
+    else:
+        ref = (
+            pd.to_datetime(lines["transaction_datetime"], errors="coerce").max()
+            if not lines.empty
+            else None
+        )
+    if pd.isna(ref):
+        ref = None
+
+    if ref is not None and not lines.empty:
+        lines = lines[
+            pd.to_datetime(lines["transaction_datetime"], errors="coerce") <= ref
+        ]
+
+    if lines.empty:
+        reference_date_str = ref.isoformat() if ref is not None else None
+        return (
+            _empty_product_features(
+                entity_key=contract.entity_key,
+                expected_ids=expected_ids,
+                include_diversity=include_diversity,
+            ),
+            reference_date_str,
+        )
+
+    products = pd.read_csv(
+        products_path,
+        usecols=[
+            "product_id",
+            "level_1",
+            "segment_id",
+            "brand_id",
+            "is_own_trademark",
+            "is_alcohol",
+        ],
+    )
+    products["product_id"] = products["product_id"].astype(str)
+    merged = lines.merge(products, on="product_id", how="left")
+    merged["product_quantity"] = pd.to_numeric(
+        merged["product_quantity"], errors="coerce"
+    ).fillna(0.0)
+    merged["is_own_trademark"] = pd.to_numeric(
+        merged["is_own_trademark"], errors="coerce"
+    ).fillna(0.0)
+    merged["is_alcohol"] = pd.to_numeric(
+        merged["is_alcohol"], errors="coerce"
+    ).fillna(0.0)
+    merged["own_trademark_quantity"] = (
+        merged["product_quantity"] * merged["is_own_trademark"]
+    )
+    merged["alcohol_quantity"] = merged["product_quantity"] * merged["is_alcohol"]
+
+    grouped = (
+        merged.groupby(contract.entity_key, as_index=False)
+        .agg(
+            product_unique_count_lifetime=("product_id", "nunique"),
+            product_level_1_unique_count_lifetime=("level_1", "nunique"),
+            product_segment_unique_count_lifetime=("segment_id", "nunique"),
+            product_brand_unique_count_lifetime=("brand_id", "nunique"),
+            product_purchase_quantity_lifetime=("product_quantity", "sum"),
+            own_trademark_quantity=("own_trademark_quantity", "sum"),
+            alcohol_quantity=("alcohol_quantity", "sum"),
+        )
+    )
+    result = pd.DataFrame({contract.entity_key: list(expected_ids)}).merge(
+        grouped,
+        on=contract.entity_key,
+        how="left",
+    )
+    numeric_columns = [
+        column for column in result.columns if column != contract.entity_key
+    ]
+    for column in numeric_columns:
+        result[column] = pd.to_numeric(result[column], errors="coerce").fillna(0.0)
+
+    quantity = result["product_purchase_quantity_lifetime"].where(
+        result["product_purchase_quantity_lifetime"] != 0
+    )
+    result["own_trademark_quantity_share_lifetime"] = (
+        result.pop("own_trademark_quantity") / quantity
+    ).fillna(0.0).round(6)
+    result["alcohol_quantity_share_lifetime"] = (
+        result.pop("alcohol_quantity") / quantity
+    ).fillna(0.0).round(6)
+
+    if include_diversity:
+        diversity_rows = []
+        for client_id in expected_ids:
+            client_lines = merged[merged[contract.entity_key] == client_id]
+            diversity_rows.append(
+                {
+                    contract.entity_key: client_id,
+                    "product_level_1_entropy_lifetime": _entropy_by_quantity(
+                        client_lines, "level_1"
+                    ),
+                    "product_brand_entropy_lifetime": _entropy_by_quantity(
+                        client_lines, "brand_id"
+                    ),
+                }
+            )
+        diversity = pd.DataFrame(diversity_rows)
+        result = result.merge(diversity, on=contract.entity_key, how="left")
+
+    reference_date_str = ref.isoformat() if ref is not None else None
+    return result, reference_date_str
+
+
 def build_feature_table(
     contract: UpliftProjectContract,
     *,
@@ -429,9 +682,22 @@ def build_feature_table(
             contract,
             recipe=recipe,
             expected_ids=expected_ids,
+            clients=clients,
             chunksize=chunksize,
         )
         feature_df = feature_df.merge(purchase_df, on=contract.entity_key, how="left")
+
+    product_groups = {"product_category", "diversity"}
+    if product_groups.intersection(recipe.feature_groups):
+        product_df, reference_date = _build_product_features(
+            contract,
+            recipe=recipe,
+            expected_ids=expected_ids,
+            clients=clients,
+            chunksize=chunksize,
+            reference_date=reference_date,
+        )
+        feature_df = feature_df.merge(product_df, on=contract.entity_key, how="left")
 
     validate_feature_table(
         feature_df,
@@ -458,6 +724,7 @@ def build_feature_table(
         columns=columns,
         generated_columns=generated_columns,
         source_tables=recipe.source_tables,
+        feature_groups=recipe.feature_groups,
         windows_days=recipe.windows_days,
     )
     metadata_path.write_text(artifact.model_dump_json(indent=2), encoding="utf-8")

@@ -18,6 +18,21 @@ dependencies = [
 dev = [
   "pytest>=8.0.0",
 ]
+boosters = [
+  "xgboost>=2.0.0",
+  "lightgbm>=4.0.0",
+  "catboost>=1.2.0",
+]
+xai = [
+  "shap>=0.44.0",
+]
+all = [
+  "pytest>=8.0.0",
+  "xgboost>=2.0.0",
+  "lightgbm>=4.0.0",
+  "catboost>=1.2.0",
+  "shap>=0.44.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

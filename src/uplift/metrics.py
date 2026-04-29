@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Sequence
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -51,6 +52,18 @@ def _validate_uplift_inputs(
     if np.isnan(u).any():
         raise ValueError("uplift contains NaN values")
     return y, t, u
+
+
+def _trapz_compatible(y_values: pd.Series, x_values: pd.Series) -> float:
+    """Integrate with numpy 1.26 compatibility and quiet numpy 2.x deprecation."""
+    # Keep np.trapz for numpy 1.26 compatibility; np.trapezoid is unavailable there.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="`trapz` is deprecated.*",
+            category=DeprecationWarning,
+        )
+        return float(np.trapz(y_values, x_values))
 
 
 def _sorted_frame(
@@ -126,7 +139,7 @@ def qini_auc_score(
 ) -> float:
     """Area under the cumulative Qini curve."""
     curve = qini_curve_data(y_true, treatment, uplift)
-    return round(float(np.trapz(curve["qini"], curve["fraction"])), 6)
+    return round(_trapz_compatible(curve["qini"], curve["fraction"]), 6)
 
 
 def uplift_auc_score(
@@ -136,7 +149,7 @@ def uplift_auc_score(
 ) -> float:
     """Area under the cumulative uplift-rate curve."""
     curve = uplift_curve_data(y_true, treatment, uplift)
-    return round(float(np.trapz(curve["uplift"], curve["fraction"])), 6)
+    return round(_trapz_compatible(curve["uplift"], curve["fraction"]), 6)
 
 
 def uplift_at_k(

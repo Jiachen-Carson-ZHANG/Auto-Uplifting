@@ -1,3 +1,7 @@
+import ast
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,6 +22,33 @@ def _toy_arrays() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     treatment = np.array([1, 1, 0, 0, 1, 0, 1, 0])
     uplift_good = np.array([0.9, 0.8, 0.2, 0.1, -0.1, -0.2, 0.7, -0.3])
     return y_true, treatment, uplift_good
+
+
+def test_auc_integration_uses_numpy_126_compatible_trapz():
+    source = Path("src/uplift/metrics.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    numpy_integration_attrs = [
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute) and node.attr in {"trapz", "trapezoid"}
+    ]
+
+    assert "trapz" in numpy_integration_attrs
+    assert "trapezoid" not in numpy_integration_attrs
+
+
+def test_auc_integration_suppresses_numpy_trapz_deprecation_warning():
+    y_true, treatment, uplift_good = _toy_arrays()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        qini_auc_score(y_true, treatment, uplift_good)
+        uplift_auc_score(y_true, treatment, uplift_good)
+
+    assert not any(
+        "trapz" in str(warning.message) and "deprecated" in str(warning.message)
+        for warning in caught
+    )
 
 
 def test_uplift_metrics_reward_better_ranking_than_reversed_ranking():

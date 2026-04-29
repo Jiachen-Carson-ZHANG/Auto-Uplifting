@@ -68,13 +68,14 @@ def test_build_feature_table_creates_one_labeled_customer_row_without_leakage_co
     assert "treatment_flg" not in feature_df.columns
     assert {
         "age_clean",
-        "redeem_missing_flag",
+        "issue_date_missing_flag",
         "purchase_txn_count_lifetime",
         "purchase_sum_lifetime",
         "avg_transaction_value_lifetime",
         "points_received_to_purchase_ratio_lifetime",
         "purchase_txn_count_30d",
     }.issubset(feature_df.columns)
+    assert not any("redeem" in column.lower() for column in feature_df.columns)
     assert set(artifact.generated_columns).issubset(set(feature_df.columns))
 
 
@@ -88,12 +89,70 @@ def test_build_feature_table_aggregates_purchase_rows_by_transaction(tmp_path):
     )
     feature_df = pd.read_csv(artifact.artifact_path).set_index("client_id")
 
-    assert feature_df.loc["c001", "purchase_txn_count_lifetime"] == 1
-    assert feature_df.loc["c001", "purchase_sum_lifetime"] == 100.0
-    assert feature_df.loc["c002", "avg_transaction_value_lifetime"] == 200.0
-    assert feature_df.loc["c004", "recency_days_lifetime"] == 0.0
+    assert feature_df.loc["c001", "purchase_txn_count_lifetime"] == 0
+    assert feature_df.loc["c001", "purchase_sum_lifetime"] == 0.0
+    assert feature_df.loc["c002", "avg_transaction_value_lifetime"] == 0.0
+    assert feature_df.loc["c004", "recency_days_lifetime"] == -1.0
     assert feature_df.loc["c005", "purchase_txn_count_lifetime"] == 0
     assert feature_df.loc["c005", "recency_days_lifetime"] == -1.0
+
+
+def test_build_feature_table_filters_purchases_before_customer_issue_date(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "clients.csv").write_text(
+        "\n".join(
+            [
+                "client_id,first_issue_date,first_redeem_date,age,gender",
+                "c001,2019-01-03 00:00:00,2019-01-10 00:00:00,31,F",
+                "c002,2019-01-05 00:00:00,2019-01-11 00:00:00,42,M",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (data_dir / "purchases.csv").write_text(
+        "\n".join(
+            [
+                "client_id,transaction_id,transaction_datetime,regular_points_received,express_points_received,regular_points_spent,express_points_spent,purchase_sum,store_id,product_id,product_quantity,trn_sum_from_iss,trn_sum_from_red",
+                "c001,t001,2019-01-02 12:00:00,1,0,0,0,100,store1,p001,1,100,",
+                "c001,t002,2019-01-04 12:00:00,1,0,0,0,900,store1,p001,1,900,",
+                "c002,t003,2019-01-04 12:00:00,1,0,0,0,200,store1,p001,1,200,",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (data_dir / "uplift_train.csv").write_text(
+        "client_id,treatment_flg,target\nc001,1,1\nc002,0,0\n",
+        encoding="utf-8",
+    )
+    (data_dir / "uplift_test.csv").write_text(
+        "client_id\nc001\nc002\n",
+        encoding="utf-8",
+    )
+    contract = UpliftProjectContract(
+        task_name="retailhero-uplift",
+        table_schema=UpliftTableSchema(
+            clients_table=str(data_dir / "clients.csv"),
+            purchases_table=str(data_dir / "purchases.csv"),
+            train_table=str(data_dir / "uplift_train.csv"),
+            scoring_table=str(data_dir / "uplift_test.csv"),
+        ),
+    )
+
+    artifact = build_feature_table(
+        contract,
+        recipe=_recipe(),
+        output_dir=tmp_path / "features",
+        cohort="train",
+        chunksize=2,
+    )
+    feature_df = pd.read_csv(artifact.artifact_path).set_index("client_id")
+
+    assert feature_df.loc["c001", "purchase_txn_count_lifetime"] == 1
+    assert feature_df.loc["c001", "purchase_sum_lifetime"] == 100.0
+    assert feature_df.loc["c002", "purchase_txn_count_lifetime"] == 1
 
 
 def test_build_feature_table_records_computed_reference_date(tmp_path):
@@ -105,7 +164,7 @@ def test_build_feature_table_records_computed_reference_date(tmp_path):
         chunksize=2,
     )
 
-    assert artifact.reference_date == "2019-01-04T12:00:00"
+    assert artifact.reference_date is None
 
 
 def test_build_feature_table_uses_pinned_reference_date_and_excludes_later_purchases(tmp_path):
@@ -127,9 +186,9 @@ def test_build_feature_table_uses_pinned_reference_date_and_excludes_later_purch
     feature_df = pd.read_csv(artifact.artifact_path).set_index("client_id")
 
     assert artifact.reference_date == "2019-01-03T12:00:00"
-    assert feature_df.loc["c003", "purchase_txn_count_lifetime"] == 1
+    assert feature_df.loc["c003", "purchase_txn_count_lifetime"] == 0
     assert feature_df.loc["c004", "purchase_txn_count_lifetime"] == 0
-    assert feature_df.loc["c002", "purchase_txn_count_1d"] == 1
+    assert feature_df.loc["c002", "purchase_txn_count_1d"] == 0
     assert feature_df.loc["c001", "purchase_txn_count_1d"] == 0
 
 

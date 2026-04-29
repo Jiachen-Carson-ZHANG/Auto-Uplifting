@@ -44,6 +44,8 @@ docs /
 prompts/
 references/
 skills/
+!src/uplift/skills/
+!src/uplift/skills/*.md
 test_dataset/
 
 # OS / IDE

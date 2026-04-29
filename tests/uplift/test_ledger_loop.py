@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pickle
+
 import pandas as pd
 
 from src.models.uplift import (
@@ -110,8 +112,38 @@ def test_run_uplift_trials_writes_ledger_and_metric_artifacts(tmp_path):
     for record in result.records:
         assert Path(record.artifact_paths["predictions"]).exists()
         assert Path(record.artifact_paths["decile_table"]).exists()
+        assert Path(record.artifact_paths["model"]).exists()
+        with Path(record.artifact_paths["model"]).open("rb") as handle:
+            cached_model = pickle.load(handle)
+        assert cached_model.learner_family == record.uplift_learner_family
         predictions = pd.read_csv(record.artifact_paths["predictions"])
         assert not set(predictions["client_id"]).intersection({"s001", "s002", "s003", "s004"})
+
+
+def test_run_uplift_trials_executes_m7_gradient_boosting_template(tmp_path):
+    contract = _contract()
+    feature_artifact = _feature_artifact(tmp_path)
+    trial = UpliftTrialSpec(
+        hypothesis_id="m7-gradient",
+        template_name="two_model_gradient_boosting_sklearn",
+        learner_family="two_model",
+        base_estimator="gradient_boosting",
+        feature_recipe_id=feature_artifact.feature_recipe_id,
+    )
+
+    result = run_uplift_trials(
+        contract,
+        feature_artifact=feature_artifact,
+        trial_specs=[trial],
+        output_dir=tmp_path / "runs",
+    )
+
+    record = result.records[0]
+    assert record.status == "success"
+    assert record.template_name == "two_model_gradient_boosting_sklearn"
+    assert record.base_estimator == "gradient_boosting"
+    assert Path(record.artifact_paths["predictions"]).exists()
+    assert Path(record.artifact_paths["model"]).exists()
 
 
 def _contract_with_test_split() -> UpliftProjectContract:

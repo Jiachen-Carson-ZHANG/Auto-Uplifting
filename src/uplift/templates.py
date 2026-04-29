@@ -6,6 +6,7 @@ from typing import Dict, List, Literal, Sequence
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -20,6 +21,28 @@ REGISTERED_UPLIFT_TEMPLATES: Dict[str, str] = {
     "response_model_sklearn": "response_model",
     "two_model_sklearn": "two_model",
     "solo_model_sklearn": "solo_model",
+    "response_model_gradient_boosting_sklearn": "response_model",
+    "two_model_gradient_boosting_sklearn": "two_model",
+    "solo_model_gradient_boosting_sklearn": "solo_model",
+    "class_transformation_sklearn": "class_transformation",
+    "class_transformation_gradient_boosting_sklearn": "class_transformation",
+    "two_model_xgboost": "two_model",
+    "two_model_lightgbm": "two_model",
+    "two_model_catboost": "two_model",
+}
+
+REGISTERED_UPLIFT_TEMPLATE_BASE_ESTIMATORS: Dict[str, str] = {
+    "response_model_sklearn": "logistic_regression",
+    "two_model_sklearn": "logistic_regression",
+    "solo_model_sklearn": "logistic_regression",
+    "response_model_gradient_boosting_sklearn": "gradient_boosting",
+    "two_model_gradient_boosting_sklearn": "gradient_boosting",
+    "solo_model_gradient_boosting_sklearn": "gradient_boosting",
+    "class_transformation_sklearn": "logistic_regression",
+    "class_transformation_gradient_boosting_sklearn": "gradient_boosting",
+    "two_model_xgboost": "xgboost",
+    "two_model_lightgbm": "lightgbm",
+    "two_model_catboost": "catboost",
 }
 
 
@@ -42,6 +65,7 @@ class UpliftTemplateOutput:
     held_out_decile_table: pd.DataFrame | None = None
     held_out_qini_curve: pd.DataFrame | None = None
     held_out_uplift_curve: pd.DataFrame | None = None
+    model: "FittedUpliftModel | None" = None
 
 
 class _ConstantProbabilityModel:
@@ -62,6 +86,7 @@ class FittedUpliftModel:
     learner_family: str
     feature_columns: List[str]
     random_seed: int
+    base_estimator: str = "logistic_regression"
     model: object | None = None
     treatment_model: object | None = None
     control_model: object | None = None
@@ -93,6 +118,10 @@ class FittedUpliftModel:
             control = _positive_probability(self.model, control_features)
             return treated - control
 
+        if self.learner_family == "class_transformation":
+            transformed = _positive_probability(self.model, features)
+            return (2.0 * transformed) - 1.0
+
         raise ValueError(f"unsupported learner_family: {self.learner_family}")
 
 
@@ -107,33 +136,137 @@ def _feature_columns(
     return [col for col in frame.columns if col not in forbidden]
 
 
-def _make_classifier(random_seed: int) -> Pipeline | _ConstantProbabilityModel:
-    return Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-            (
-                "classifier",
-                LogisticRegression(
-                    max_iter=500,
-                    solver="liblinear",
-                    random_state=random_seed,
+def _make_classifier(
+    *,
+    base_estimator: str,
+    random_seed: int,
+    params: dict | None = None,
+) -> Pipeline | _ConstantProbabilityModel:
+    extra_params = dict(params or {})
+    if base_estimator == "gradient_boosting":
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "classifier",
+                    GradientBoostingClassifier(
+                        **{
+                            "n_estimators": 50,
+                            "learning_rate": 0.05,
+                            "max_depth": 2,
+                            **extra_params,
+                        },
+                        random_state=random_seed,
+                    ),
                 ),
-            ),
-        ]
-    )
+            ]
+        )
+    if base_estimator == "logistic_regression":
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                (
+                    "classifier",
+                    LogisticRegression(
+                        **{
+                            "max_iter": 500,
+                            "solver": "liblinear",
+                            **extra_params,
+                        },
+                        random_state=random_seed,
+                    ),
+                ),
+            ]
+        )
+    if base_estimator == "xgboost":
+        try:
+            from xgboost import XGBClassifier
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError("xgboost is required for base_estimator='xgboost'") from exc
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "classifier",
+                    XGBClassifier(
+                        **{
+                            "n_estimators": 100,
+                            "max_depth": 5,
+                            "learning_rate": 0.1,
+                            "eval_metric": "logloss",
+                            **extra_params,
+                        },
+                        random_state=random_seed,
+                    ),
+                ),
+            ]
+        )
+    if base_estimator == "lightgbm":
+        try:
+            from lightgbm import LGBMClassifier
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError("lightgbm is required for base_estimator='lightgbm'") from exc
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "classifier",
+                    LGBMClassifier(
+                        **{
+                            "n_estimators": 100,
+                            "max_depth": 5,
+                            "learning_rate": 0.1,
+                            "verbose": -1,
+                            **extra_params,
+                        },
+                        random_state=random_seed,
+                    ),
+                ),
+            ]
+        )
+    if base_estimator == "catboost":
+        try:
+            from catboost import CatBoostClassifier
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError("catboost is required for base_estimator='catboost'") from exc
+        return Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "classifier",
+                    CatBoostClassifier(
+                        **{
+                            "iterations": 100,
+                            "depth": 5,
+                            "learning_rate": 0.1,
+                            "verbose": 0,
+                            **extra_params,
+                        },
+                        random_seed=random_seed,
+                    ),
+                ),
+            ]
+        )
+    raise ValueError(f"unsupported base_estimator: {base_estimator}")
 
 
 def _fit_binary_classifier(
     features: pd.DataFrame,
     target: Sequence[int],
     *,
+    base_estimator: str,
     random_seed: int,
+    params: dict | None = None,
 ) -> Pipeline | _ConstantProbabilityModel:
     y = np.asarray(target).astype(int)
     if len(np.unique(y)) < 2:
         return _ConstantProbabilityModel(float(y.mean()) if len(y) else 0.0)
-    model = _make_classifier(random_seed)
+    model = _make_classifier(
+        base_estimator=base_estimator,
+        random_seed=random_seed,
+        params=params,
+    )
     model.fit(features, y)
     return model
 
@@ -148,11 +281,25 @@ def _positive_probability(model: object | None, features: pd.DataFrame) -> np.nd
 def fit_uplift_model(
     train_df: pd.DataFrame,
     *,
-    learner_family: Literal["random", "response_model", "two_model", "solo_model"],
+    learner_family: Literal[
+        "random",
+        "response_model",
+        "two_model",
+        "solo_model",
+        "class_transformation",
+    ],
+    base_estimator: Literal[
+        "logistic_regression",
+        "gradient_boosting",
+        "xgboost",
+        "lightgbm",
+        "catboost",
+    ] = "logistic_regression",
     entity_key: str,
     treatment_col: str,
     target_col: str,
     random_seed: int,
+    params: dict | None = None,
 ) -> FittedUpliftModel:
     """Fit one in-house uplift baseline using train rows only."""
     columns = _feature_columns(
@@ -169,6 +316,7 @@ def fit_uplift_model(
             learner_family=learner_family,
             feature_columns=columns,
             random_seed=random_seed,
+            base_estimator=base_estimator,
         )
 
     if learner_family == "response_model":
@@ -176,7 +324,14 @@ def fit_uplift_model(
             learner_family=learner_family,
             feature_columns=columns,
             random_seed=random_seed,
-            model=_fit_binary_classifier(features, target, random_seed=random_seed),
+            base_estimator=base_estimator,
+            model=_fit_binary_classifier(
+                features,
+                target,
+                base_estimator=base_estimator,
+                random_seed=random_seed,
+                params=params,
+            ),
         )
 
     if learner_family == "two_model":
@@ -184,17 +339,22 @@ def fit_uplift_model(
         treatment_model = _fit_binary_classifier(
             features[treatment_mask],
             target[treatment_mask],
+            base_estimator=base_estimator,
             random_seed=random_seed,
+            params=params,
         )
         control_model = _fit_binary_classifier(
             features[~treatment_mask],
             target[~treatment_mask],
+            base_estimator=base_estimator,
             random_seed=random_seed,
+            params=params,
         )
         return FittedUpliftModel(
             learner_family=learner_family,
             feature_columns=columns,
             random_seed=random_seed,
+            base_estimator=base_estimator,
             treatment_model=treatment_model,
             control_model=control_model,
         )
@@ -205,13 +365,35 @@ def fit_uplift_model(
         solo_model = _fit_binary_classifier(
             solo_features,
             target,
+            base_estimator=base_estimator,
             random_seed=random_seed,
+            params=params,
         )
         return FittedUpliftModel(
             learner_family=learner_family,
             feature_columns=columns,
             random_seed=random_seed,
+            base_estimator=base_estimator,
             model=solo_model,
+        )
+
+    if learner_family == "class_transformation":
+        transformed_target = (
+            train_df[target_col].astype(int) == train_df[treatment_col].astype(int)
+        ).astype(int)
+        transformed_model = _fit_binary_classifier(
+            features,
+            transformed_target,
+            base_estimator=base_estimator,
+            random_seed=random_seed,
+            params=params,
+        )
+        return FittedUpliftModel(
+            learner_family=learner_family,
+            feature_columns=columns,
+            random_seed=random_seed,
+            base_estimator=base_estimator,
+            model=transformed_model,
         )
 
     raise ValueError(f"unsupported learner_family: {learner_family}")
@@ -269,14 +451,27 @@ def run_uplift_template(
         raise ValueError(
             f"template {spec.template_name} expects learner_family={expected_family}"
         )
+    expected_base_estimator = REGISTERED_UPLIFT_TEMPLATE_BASE_ESTIMATORS.get(
+        spec.template_name
+    )
+    if (
+        expected_base_estimator is not None
+        and spec.base_estimator != expected_base_estimator
+    ):
+        raise ValueError(
+            f"template {spec.template_name} expects "
+            f"base_estimator={expected_base_estimator}"
+        )
 
     model = fit_uplift_model(
         train_df,
         learner_family=spec.learner_family,
+        base_estimator=expected_base_estimator or spec.base_estimator,
         entity_key=entity_key,
         treatment_col=treatment_col,
         target_col=target_col,
         random_seed=spec.split_seed,
+        params=spec.params,
     )
     policy = UpliftEvaluationPolicy(cutoff_grid=cutoff_grid)
     predictions, metric_result = _score_frame(
@@ -336,4 +531,5 @@ def run_uplift_template(
         held_out_decile_table=held_out_decile,
         held_out_qini_curve=held_out_qini,
         held_out_uplift_curve=held_out_uplift,
+        model=model,
     )
