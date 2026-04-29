@@ -367,8 +367,14 @@ def run_evaluation_phase(
     """
     trial_meta = {**trial_meta, "trial_status": trial_status}
     records = ledger.load()
+    # Exclude stale pre-normalization records (raw Qini > 1.0) from champion
+    # selection so the judge's delta comparison is on a consistent normalized scale.
+    normalized_records = [
+        r for r in records
+        if r.status == "success" and r.qini_auc is not None and r.qini_auc <= 1.0
+    ]
     champion = max(
-        (record for record in records if record.status == "success" and record.qini_auc is not None),
+        normalized_records,
         key=lambda record: record.qini_auc,
         default=None,
     )

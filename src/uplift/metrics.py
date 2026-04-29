@@ -132,14 +132,38 @@ def uplift_curve_data(
     )
 
 
+def _perfect_qini_auc(y_true: np.ndarray, treatment: np.ndarray) -> float:
+    """Qini AUC for the oracle model — treated responders ranked first.
+
+    Used as the normalization denominator so qini_auc_score returns a
+    coefficient in roughly [0, 1] rather than raw cumulative-count space.
+    """
+    # Oracle ranking: treated responders (3) > treated non-responders (2)
+    # > control responders (1) > control non-responders (0).
+    perfect = treatment.astype(float) * 2 + y_true.astype(float)
+    curve = qini_curve_data(y_true, treatment, perfect)
+    return abs(_trapz_compatible(curve["qini"], curve["fraction"]))
+
+
 def qini_auc_score(
     y_true: Sequence[int] | np.ndarray,
     treatment: Sequence[int] | np.ndarray,
     uplift: Sequence[float] | np.ndarray,
 ) -> float:
-    """Area under the cumulative Qini curve."""
-    curve = qini_curve_data(y_true, treatment, uplift)
-    return round(_trapz_compatible(curve["qini"], curve["fraction"]), 6)
+    """Area under the cumulative Qini curve, normalized by the perfect oracle model.
+
+    Returns a coefficient in roughly [0, 1]: 0 = random, 1 = oracle, negative
+    values indicate anti-uplift ordering. Raw count space values (~100–300 for
+    X5 RetailHero) are divided by the oracle Qini AUC so the result is
+    comparable across datasets of different sizes.
+    """
+    y_arr, t_arr, _ = _validate_uplift_inputs(y_true, treatment, uplift)
+    curve = qini_curve_data(y_arr, t_arr, uplift)
+    raw = _trapz_compatible(curve["qini"], curve["fraction"])
+    perfect = _perfect_qini_auc(y_arr, t_arr)
+    if perfect == 0:
+        return 0.0
+    return round(raw / perfect, 6)
 
 
 def uplift_auc_score(
