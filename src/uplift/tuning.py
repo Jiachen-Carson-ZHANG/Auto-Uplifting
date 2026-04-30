@@ -738,13 +738,20 @@ def _sample_tuning_specs(
     )
 
     specs: list[UpliftTrialSpec] = []
+    seen_effective_params: set[str] = set()
     for indexes in index_tuples:
+        if len(specs) >= candidate_space.trial_budget:
+            break
         params = {
             key: values_by_key[position][index]
             for position, (key, index) in enumerate(zip(keys, indexes, strict=True))
         }
         if params_hash(params) in existing_hashes:
             continue
+        effective_key = _effective_params_hash(candidate.base_estimator, params)
+        if effective_key in seen_effective_params:
+            continue
+        seen_effective_params.add(effective_key)
         serial = len(specs) + 1
         specs.append(
             UpliftTrialSpec(
@@ -777,7 +784,7 @@ def _sample_param_index_tuples(
     if total_combinations <= _MAX_ENUMERATED_PARAM_COMBOS:
         all_indexes = list(itertools.product(*index_ranges))
         rng.shuffle(all_indexes)
-        return all_indexes[: min(budget, len(all_indexes))]
+        return all_indexes
 
     selected: list[tuple[int, ...]] = []
     seen: set[tuple[int, ...]] = set()
@@ -795,6 +802,16 @@ def _sample_param_index_tuples(
         seen.add(indexes)
         selected.append(indexes)
     return selected
+
+
+def _effective_params_hash(base_estimator: str, params: dict[str, Any]) -> str:
+    effective = dict(params)
+    if base_estimator == "lightgbm":
+        max_depth = effective.get("max_depth")
+        num_leaves = effective.get("num_leaves")
+        if isinstance(max_depth, int) and max_depth > 0 and isinstance(num_leaves, int):
+            effective["num_leaves"] = min(num_leaves, 2 ** max_depth)
+    return params_hash(effective)
 
 
 def _slug(value: str) -> str:

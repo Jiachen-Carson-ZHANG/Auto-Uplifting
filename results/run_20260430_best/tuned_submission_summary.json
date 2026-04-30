@@ -1,0 +1,9 @@
+{
+  "champion_hypothesis_id": "agentic_tune__UT-9fb6c6__p02",
+  "champion_run_id": "RUN-2af274da",
+  "champion_template_name": "class_transformation_lightgbm",
+  "held_out_qini_auc": 338.601489,
+  "held_out_uplift_auc": 0.06397,
+  "row_count": 200123,
+  "submission_path": "/home/tough/Agentic ML/artifacts/uplift/run_20260430_221602/agentic_tuning/uplift_submission.csv"
+}

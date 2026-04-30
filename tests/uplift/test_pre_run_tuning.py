@@ -175,8 +175,8 @@ def test_agentic_tuning_plan_calls_llm_and_samples_deterministically_without_hum
               "search_space": {
                 "n_estimators": [300, 400],
                 "learning_rate": [0.03, 0.05],
-                "max_depth": [2, 3],
-                "num_leaves": [7, 15]
+                "max_depth": [3, 5],
+                "num_leaves": [7, 31]
               }
             },
             {
@@ -240,6 +240,48 @@ def test_agentic_tuning_plan_calls_llm_and_samples_deterministically_without_hum
     assert {
         spec.template_name for spec in plan.trial_specs
     } == {"class_transformation_lightgbm", "class_transformation_xgboost"}
+
+
+def test_agentic_tuning_plan_deduplicates_effective_lightgbm_params():
+    def fake_llm(_system: str, _user: str) -> str:
+        return """
+        {
+          "rationale": "Probe a compact LightGBM room.",
+          "search_spaces": [
+            {
+              "template_name": "class_transformation_lightgbm",
+              "rationale": "Deliberately redundant leaves under max_depth.",
+              "search_space": {
+                "n_estimators": [300],
+                "learning_rate": [0.03],
+                "max_depth": [3],
+                "num_leaves": [15, 31]
+              }
+            }
+          ]
+        }
+        """
+
+    records = [
+        _record(
+            "RUN-lgbm",
+            "UT-lgbm",
+            "class_transformation",
+            "lightgbm",
+            qini_auc=333.0,
+            held_out_qini_auc=331.0,
+        )
+    ]
+
+    plan = build_agentic_tuning_plan(
+        records,
+        llm=fake_llm,
+        tuning_seed=20260501,
+        top_k=1,
+        max_trials_per_candidate=16,
+    )
+
+    assert len(plan.trial_specs) == 1
 
 
 def test_write_agentic_tuning_plan_saves_audit_json(tmp_path):
