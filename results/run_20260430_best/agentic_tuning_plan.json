@@ -1,0 +1,604 @@
+{
+  "budget_rule": "min(16, 4 * tunable_parameter_count) per candidate",
+  "candidates": [
+    {
+      "base_estimator": "lightgbm",
+      "existing_params_hash": "26e798d18994",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "held_out_qini_auc": 331.769404,
+      "held_out_uplift_auc": 0.06149,
+      "learner_family": "class_transformation",
+      "qini_auc": 333.462493,
+      "rank": 1,
+      "score": 0.33550074999999996,
+      "source_hypothesis_id": "UT-9fb6c6",
+      "source_run_id": "RUN-c5e6e86f",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm",
+      "uplift_auc": 0.060678
+    },
+    {
+      "base_estimator": "xgboost",
+      "existing_params_hash": "c19b035ec366",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "held_out_qini_auc": 325.983634,
+      "held_out_uplift_auc": 0.058876,
+      "learner_family": "class_transformation",
+      "qini_auc": 341.411524,
+      "rank": 2,
+      "score": 0.297863,
+      "source_hypothesis_id": "UT-5b3df3",
+      "source_run_id": "RUN-f7bdb1dc",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost",
+      "uplift_auc": 0.060407
+    }
+  ],
+  "llm_rationale": "Both shortlisted uplift candidates already perform well on internal validation. We therefore keep the exploration compact, adjusting only the most leverage-heavy hyper-knobs (tree depth / leaves, learning rate, ensemble size, row-sampling). Using two values per knob gives 2^4 = 16 trials, satisfying the budget rule (\u2264 min(16, 4\u00d74)=16).",
+  "search_spaces": [
+    {
+      "candidate": {
+        "base_estimator": "lightgbm",
+        "existing_params_hash": "26e798d18994",
+        "feature_recipe_id": "0b2e3552e7bd",
+        "held_out_qini_auc": 331.769404,
+        "held_out_uplift_auc": 0.06149,
+        "learner_family": "class_transformation",
+        "qini_auc": 333.462493,
+        "rank": 1,
+        "score": 0.33550074999999996,
+        "source_hypothesis_id": "UT-9fb6c6",
+        "source_run_id": "RUN-c5e6e86f",
+        "split_seed": 42,
+        "template_name": "class_transformation_lightgbm",
+        "uplift_auc": 0.060678
+      },
+      "rationale": "LightGBM uplift models are sensitive to depth/leaves, learning rate\u2013estimator trade-off, and mild subsampling. The chosen mid-vs-high settings probe these interactions while fitting into one grid of 16.",
+      "search_space": {
+        "learning_rate": [
+          0.03,
+          0.07
+        ],
+        "max_depth": [
+          3,
+          5
+        ],
+        "n_estimators": [
+          300,
+          600
+        ],
+        "num_leaves": [
+          15,
+          31
+        ]
+      },
+      "trial_budget": 16,
+      "warnings": []
+    },
+    {
+      "candidate": {
+        "base_estimator": "xgboost",
+        "existing_params_hash": "c19b035ec366",
+        "feature_recipe_id": "0b2e3552e7bd",
+        "held_out_qini_auc": 325.983634,
+        "held_out_uplift_auc": 0.058876,
+        "learner_family": "class_transformation",
+        "qini_auc": 341.411524,
+        "rank": 2,
+        "score": 0.297863,
+        "source_hypothesis_id": "UT-5b3df3",
+        "source_run_id": "RUN-f7bdb1dc",
+        "split_seed": 42,
+        "template_name": "class_transformation_xgboost",
+        "uplift_auc": 0.060407
+      },
+      "rationale": "For XGBoost uplift, depth, learning rate, ensemble size and subsample ratio dominate bias-variance trade-off. Two reasonable levels for each keep coverage broad but budget-friendly (16 configs).",
+      "search_space": {
+        "learning_rate": [
+          0.03,
+          0.07
+        ],
+        "max_depth": [
+          3,
+          5
+        ],
+        "n_estimators": [
+          300,
+          600
+        ],
+        "subsample": [
+          0.7,
+          1.0
+        ]
+      },
+      "trial_budget": 16,
+      "warnings": []
+    }
+  ],
+  "selection_score_definition": "min(validation, held_out) - 0.25 * abs(held_out - validation), using normalized Qini artifacts when available and raw Qini ledger metrics otherwise",
+  "top_k": 2,
+  "trial_specs": [
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p01",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-01-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p02",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-02-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p03",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-03-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p04",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-04-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p05",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-05-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p06",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-06-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p07",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-07-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p08",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-08-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p09",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-09-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p10",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-10-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p11",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-11-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p12",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-12-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p13",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-13-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p14",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-14-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p15",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "num_leaves": 31
+      },
+      "spec_id": "AT-01-15-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-9fb6c6__p16",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "num_leaves": 15
+      },
+      "spec_id": "AT-01-16-class-transformation-lightgbm",
+      "split_seed": 42,
+      "template_name": "class_transformation_lightgbm"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p01",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-01-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p02",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-02-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p03",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-03-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p04",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-04-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p05",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-05-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p06",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-06-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p07",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-07-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p08",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-08-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p09",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-09-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p10",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-10-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p11",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-11-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p12",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 300,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-12-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p13",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-13-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p14",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 300,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-14-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p15",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 600,
+        "subsample": 1.0
+      },
+      "spec_id": "AT-02-15-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "0b2e3552e7bd",
+      "hypothesis_id": "agentic_tune__UT-5b3df3__p16",
+      "learner_family": "class_transformation",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 600,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-16-class-transformation-xgboost",
+      "split_seed": 42,
+      "template_name": "class_transformation_xgboost"
+    }
+  ],
+  "tuning_seed": 20260501,
+  "warnings": []
+}

@@ -14,6 +14,7 @@
 | `uplift_ledger.jsonl` | Append-only trial records: metrics, verdict, judge_narrative, xai_summary, policy_narrative, strategy_rationale |
 | `final_report.md` | Auto-generated report: champion, benchmark, all trials table, policy recommendation, XAI explanation |
 | `explainability/EXPLAINABILITY_REPORT.md` | Visual explanation pack: human-vs-AutoLift metric comparison, curves, deciles, XAI drivers, and agent reasoning timeline |
+| `agentic_tuning_plan.json` | Dry-run deterministic tuning plan for the top two internal AutoLift candidates; not trained yet |
 | `hypotheses.jsonl` | Hypothesis lifecycle records |
 
 ## Trial Summary
@@ -56,3 +57,16 @@ Open `explainability/EXPLAINABILITY_REPORT.md` for report-ready visuals:
 This supports the main agent story: AutoLift performs the full uplift workflow
 end to end, records the rationale behind each trial, and exposes the decision
 path that led to the final champion.
+
+## Agentic Tuning Plan
+
+`agentic_tuning_plan.json` is the next-run plan, not a post-hoc benchmark
+comparison. It selects the top two candidates only from the AutoLift runtime
+ledger, asks the LLM for bounded search rooms, validates those rooms against
+programmatic guardrails, and deterministically samples 32 total trial specs
+with tuning seed `20260501`.
+
+Selected candidates:
+
+- `class_transformation_lightgbm` from `RUN-c5e6e86f`
+- `class_transformation_xgboost` from `RUN-f7bdb1dc`
