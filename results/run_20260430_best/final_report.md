@@ -74,6 +74,20 @@ For slide/report comparison, use the best held-out human notebook row above. The
 
 Interpretation: AutoLift is the held-out Qini leader, but the real human notebook remains competitive and is stronger on several targeting lift metrics. Present the result as a marginal Qini improvement from automation, not as a broad dominance claim.
 
+## Explainability Pack
+
+Visual explanation assets are available in `explainability/EXPLAINABILITY_REPORT.md`.
+
+The pack adapts the human notebook's explanation style for AutoLift:
+
+- Human-vs-AutoLift top-k targeting comparison.
+- AutoLift held-out Qini and uplift curves.
+- AutoLift held-out decile lift chart.
+- Champion XAI top-driver chart.
+- Agent reasoning timeline showing hypotheses, verdicts, and metric evidence across trials.
+
+Use this pack to support the agent contribution: AutoLift is not only a model score, but an auditable end-to-end experimentation loop.
+
 ## Seed Stability
 
 No repeated-seed stability groups are available yet.

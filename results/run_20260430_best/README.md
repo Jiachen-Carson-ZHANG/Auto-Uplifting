@@ -13,6 +13,7 @@
 | `pipeline.log` | Full stage-by-stage run trace including `[plan]` (o3 hypothesis) and `[eval]` (o4-mini verdict) lines for every trial |
 | `uplift_ledger.jsonl` | Append-only trial records: metrics, verdict, judge_narrative, xai_summary, policy_narrative, strategy_rationale |
 | `final_report.md` | Auto-generated report: champion, benchmark, all trials table, policy recommendation, XAI explanation |
+| `explainability/EXPLAINABILITY_REPORT.md` | Visual explanation pack: human-vs-AutoLift metric comparison, curves, deciles, XAI drivers, and agent reasoning timeline |
 | `hypotheses.jsonl` | Hypothesis lifecycle records |
 
 ## Trial Summary
@@ -40,3 +41,18 @@ top-k lift at 5%, 10%, and 20%.
 
 The agent's verdict ceiling correctly blocked two overfitting trials (inconclusive)
 and selected the most stable champion via stability-adjusted scoring.
+
+## Explainability Pack
+
+Open `explainability/EXPLAINABILITY_REPORT.md` for report-ready visuals:
+
+- `human_vs_autolift_topk.svg`
+- `autolift_heldout_qini_curve.svg`
+- `autolift_heldout_uplift_curve.svg`
+- `autolift_decile_lift.svg`
+- `autolift_xai_top_drivers.svg`
+- `agent_reasoning_timeline.svg`
+
+This supports the main agent story: AutoLift performs the full uplift workflow
+end to end, records the rationale behind each trial, and exposes the decision
+path that led to the final champion.
