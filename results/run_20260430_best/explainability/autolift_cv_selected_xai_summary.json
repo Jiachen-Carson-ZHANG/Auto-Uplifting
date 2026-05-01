@@ -1,0 +1,155 @@
+{
+  "base_estimator": "lightgbm",
+  "champion_hypothesis_id": "agentic_tune__UT-bc7585__p14",
+  "champion_run_id": "RUN-f1c30175",
+  "champion_template_name": "two_model_lightgbm",
+  "explanation_scope": "prediction_sensitivity_and_representative_cases",
+  "feature_artifact_id": "2fbce137df43",
+  "feature_recipe_id": "fd65515ef37c",
+  "feature_semantics_diagnostic": {
+    "age_dominance_warning": false,
+    "behavioral_top5_present": true,
+    "top_feature": "purchase_txn_count_lifetime",
+    "top_feature_is_age": false
+  },
+  "global_top_features": [
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_txn_count_lifetime",
+      "mean_abs_uplift_change": 0.026598,
+      "spearman_with_uplift": -0.2285
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_txn_count_60d",
+      "mean_abs_uplift_change": 0.02387,
+      "spearman_with_uplift": -0.2271
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_txn_count_30d",
+      "mean_abs_uplift_change": 0.023254,
+      "spearman_with_uplift": -0.1792
+    },
+    {
+      "direction": "higher_feature_higher_uplift",
+      "feature": "recency_days_lifetime",
+      "mean_abs_uplift_change": 0.020944,
+      "spearman_with_uplift": 0.0262
+    },
+    {
+      "direction": "higher_feature_higher_uplift",
+      "feature": "age_clean",
+      "mean_abs_uplift_change": 0.018747,
+      "spearman_with_uplift": 0.2764
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "days_to_first_redeem",
+      "mean_abs_uplift_change": 0.015667,
+      "spearman_with_uplift": -0.0241
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_txn_count_90d",
+      "mean_abs_uplift_change": 0.015546,
+      "spearman_with_uplift": -0.2453
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "basket_quantity_30d",
+      "mean_abs_uplift_change": 0.013517,
+      "spearman_with_uplift": -0.2347
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "account_age_days",
+      "mean_abs_uplift_change": 0.012317,
+      "spearman_with_uplift": -0.2122
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "avg_transaction_value_lifetime",
+      "mean_abs_uplift_change": 0.011337,
+      "spearman_with_uplift": -0.193
+    }
+  ],
+  "limitations": "Permutation sensitivity explains model behavior; it is not causal proof of treatment effect.",
+  "method": "cached_model_permutation",
+  "model_family": "two_model",
+  "n_rows_used": 500,
+  "representative_cases": {
+    "highest_uplift": [
+      {
+        "client_id": "eb7881a604",
+        "purchase_txn_count_30d": 2,
+        "purchase_txn_count_60d": 3,
+        "purchase_txn_count_lifetime": 4,
+        "uplift": 0.42608956213494853
+      },
+      {
+        "client_id": "1222eae540",
+        "purchase_txn_count_30d": 2,
+        "purchase_txn_count_60d": 4,
+        "purchase_txn_count_lifetime": 6,
+        "uplift": 0.42209597692145456
+      },
+      {
+        "client_id": "cbc08f01b1",
+        "purchase_txn_count_30d": 2,
+        "purchase_txn_count_60d": 2,
+        "purchase_txn_count_lifetime": 2,
+        "uplift": 0.36448606576611275
+      }
+    ],
+    "lowest_uplift": [
+      {
+        "client_id": "80c304161d",
+        "purchase_txn_count_30d": 3,
+        "purchase_txn_count_60d": 10,
+        "purchase_txn_count_lifetime": 15,
+        "uplift": -0.12101034316405451
+      },
+      {
+        "client_id": "0b3c425c48",
+        "purchase_txn_count_30d": 4,
+        "purchase_txn_count_60d": 11,
+        "purchase_txn_count_lifetime": 19,
+        "uplift": -0.13758066143826864
+      },
+      {
+        "client_id": "7d7cffb084",
+        "purchase_txn_count_30d": 16,
+        "purchase_txn_count_60d": 33,
+        "purchase_txn_count_lifetime": 66,
+        "uplift": -0.1740347264485591
+      }
+    ],
+    "near_boundary": [
+      {
+        "client_id": "6c1bb46d9d",
+        "purchase_txn_count_30d": 11,
+        "purchase_txn_count_60d": 18,
+        "purchase_txn_count_lifetime": 27,
+        "uplift": 0.02101015564765052
+      },
+      {
+        "client_id": "3eeeec1e16",
+        "purchase_txn_count_30d": 1,
+        "purchase_txn_count_60d": 3,
+        "purchase_txn_count_lifetime": 12,
+        "uplift": 0.02097179912124586
+      },
+      {
+        "client_id": "5b82d8e9a9",
+        "purchase_txn_count_30d": 28,
+        "purchase_txn_count_60d": 47,
+        "purchase_txn_count_lifetime": 47,
+        "uplift": 0.020914572198668324
+      }
+    ]
+  },
+  "source_feature_artifact": "/home/tough/Agentic ML/artifacts/uplift/scratch_full_rerun_20260501_034315/features/uplift_features_train_2fbce137df43.csv",
+  "source_model": "/home/tough/Agentic ML/artifacts/uplift/scratch_full_rerun_20260501_034315/agentic_tuning_validation_only/feature_recipe_fd65515ef37c/AT-02-14-two-model-lightgbm/model.pkl",
+  "source_predictions": "/home/tough/Agentic ML/artifacts/uplift/scratch_full_rerun_20260501_034315/agentic_tuning_validation_only/feature_recipe_fd65515ef37c/AT-02-14-two-model-lightgbm/held_out_predictions.csv"
+}

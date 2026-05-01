@@ -19,7 +19,8 @@
 | `pipeline.log` | Full stage-by-stage run trace including `[plan]` (o3 hypothesis) and `[eval]` (o4-mini verdict) lines for every trial |
 | `uplift_ledger.jsonl` | Append-only trial records: metrics, verdict, judge_narrative, xai_summary, policy_narrative, strategy_rationale |
 | `final_report.md` | Auto-generated report: champion, benchmark, all trials table, policy recommendation, XAI explanation |
-| `explainability/EXPLAINABILITY_REPORT.md` | Visual explanation pack: human-vs-AutoLift metric comparison, curves, deciles, XAI drivers, and agent reasoning timeline |
+| `explainability/EXPLAINABILITY_REPORT.md` | Visual explanation pack: human-vs-AutoLift metric comparison, curves, deciles, prediction-level XAI, representative cases, and agent reasoning timeline |
+| `explainability/autolift_cv_selected_xai_summary.json` | Prediction-level XAI summary for the strict CV-selected `RUN-f1c30175` candidate |
 | `agentic_tuning_plan.json` | Quarantined original tuning plan; retained for audit, not final champion selection |
 | `agentic_tuning_execution_summary.json` | Quarantined 32-trial tuning run summary; selector could see held-out metrics |
 | `agentic_tuning_ledger.jsonl` | Combined ledger for the quarantined tuning specs |
@@ -72,12 +73,16 @@ Open `explainability/EXPLAINABILITY_REPORT.md` for report-ready visuals:
 - `autolift_heldout_uplift_curve.svg`
 - `autolift_decile_lift.svg`
 - `autolift_xai_top_drivers.svg`
+- `autolift_xai_driver_direction.svg`
+- `autolift_representative_cases.svg`
 - `agent_reasoning_timeline.svg`
 
 This supports the main agent story: AutoLift performs the full uplift workflow
 end to end, records the rationale behind each trial, and exposes the decision
-path. The current visual pack is for `RUN-c5e6e86f`, the retrospective held-out
-best reference, not the strict validation+CV selected candidate `RUN-f1c30175`.
+path. The current visual pack now uses prediction-level XAI for the strict
+validation+CV selected candidate `RUN-f1c30175`; the reasoning timeline still
+shows the earlier agent trial loop, including the retrospective held-out-best
+reference `RUN-c5e6e86f`, for process traceability.
 
 ## Agentic Tuning Audit
 

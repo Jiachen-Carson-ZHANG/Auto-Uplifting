@@ -160,20 +160,18 @@ held-out-best reference.
 
 Visual explanation assets are available in `explainability/EXPLAINABILITY_REPORT.md`.
 
-The current visual pack was generated for `RUN-c5e6e86f`, the retrospective
-held-out-best reference. It is useful for explaining the agent workflow and
-model behavior, but should not be presented as the XAI pack for the strict
-validation+CV selected candidate `RUN-f1c30175`.
-
 The pack adapts the human notebook's explanation style for AutoLift:
 
 - Human-vs-AutoLift top-k targeting comparison.
 - AutoLift held-out Qini and uplift curves.
 - AutoLift held-out decile lift chart.
-- Champion XAI top-driver chart.
+- Prediction-level XAI top-driver and direction charts for `RUN-f1c30175`.
+- Representative customer cases for high uplift, near-boundary, and low uplift groups.
 - Agent reasoning timeline showing hypotheses, verdicts, and metric evidence across trials.
 
-Use this pack to support the agent contribution: AutoLift is not only a model score, but an auditable end-to-end experimentation loop.
+Use this pack to support the agent contribution: AutoLift is not only a model
+score, but an auditable end-to-end experimentation loop whose final candidate
+can be inspected at prediction level.
 
 ## Seed Stability
 
@@ -189,7 +187,7 @@ No repeated-seed stability groups are available yet.
 ## Policy Recommendation
 
 This policy block was generated from `RUN-c5e6e86f` artifacts. Treat it as a
-retrospective policy example unless a matching policy/XAI pack is regenerated
+retrospective policy example unless a matching policy simulation is regenerated
 for `RUN-f1c30175`.
 
 - Recommended threshold: 5%
@@ -199,13 +197,20 @@ for `RUN-f1c30175`.
 
 ## Explanation
 
-- Method: cached_model_permutation
-- Top drivers: [{'feature': 'age_clean', 'mean_abs_uplift_change': 0.013934, 'spearman_with_uplift': 0.3724, 'direction': 'higher_feature_higher_uplift'}, {'feature': 'days_to_first_redeem', 'mean_abs_uplift_change': 0.013803, 'spearman_with_uplift': -0.177, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'points_received_total_30d', 'mean_abs_uplift_change': 0.009384, 'spearman_with_uplift': -0.2579, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'purchase_sum_60d', 'mean_abs_uplift_change': 0.009088, 'spearman_with_uplift': -0.3672, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'account_age_days', 'mean_abs_uplift_change': 0.008941, 'spearman_with_uplift': -0.2089, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'purchase_sum_90d', 'mean_abs_uplift_change': 0.006571, 'spearman_with_uplift': -0.3573, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'basket_quantity_30d', 'mean_abs_uplift_change': 0.006465, 'spearman_with_uplift': -0.2992, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'points_spent_to_purchase_ratio_lifetime', 'mean_abs_uplift_change': 0.006298, 'spearman_with_uplift': -0.1781, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'avg_transaction_value_30d', 'mean_abs_uplift_change': 0.005967, 'spearman_with_uplift': -0.1642, 'direction': 'higher_feature_lower_uplift'}, {'feature': 'points_received_total_90d', 'mean_abs_uplift_change': 0.0056, 'spearman_with_uplift': -0.3222, 'direction': 'higher_feature_lower_uplift'}]
-- Leakage flag: True
+- Candidate: `RUN-f1c30175` / `two_model_lightgbm`
+- Method: cached_model_permutation over 500 held-out prediction rows
+- Summary artifact: `explainability/autolift_cv_selected_xai_summary.json`
+- Visuals: `explainability/autolift_xai_top_drivers.svg` and `explainability/autolift_xai_driver_direction.svg`
+- Top drivers: purchase_txn_count_lifetime, purchase_txn_count_60d, purchase_txn_count_30d, recency_days_lifetime, age_clean
+- Caveat: permutation sensitivity explains model behavior, not causal proof; age/account-age features remain prominent and should be discussed with the feature-policy caveat.
 
 ## Representative Cases
 
-{'highest_uplift': [{'client_id': 'bb32a9bb43', 'uplift': 0.19905557734915647, 'age_clean': 65.0, 'days_to_first_redeem': 552.0, 'points_received_total_30d': 2.0}, {'client_id': 'cc66ab8b43', 'uplift': 0.19582031194238403, 'age_clean': 53.0, 'days_to_first_redeem': 23.0, 'points_received_total_30d': 39.6}, {'client_id': '2d594e4f54', 'uplift': 0.188900684734439, 'age_clean': 62.0, 'days_to_first_redeem': 82.0, 'points_received_total_30d': 1.9}], 'lowest_uplift': [{'client_id': '7666193e73', 'uplift': -0.04241989947605418, 'age_clean': 58.0, 'days_to_first_redeem': 815.0, 'points_received_total_30d': 134.4}, {'client_id': 'ecd5de5b27', 'uplift': -0.04715497567508797, 'age_clean': 47.0, 'days_to_first_redeem': 48.0, 'points_received_total_30d': 14.6}, {'client_id': '80ddf8fbfc', 'uplift': -0.0627210953228261, 'age_clean': 37.0, 'days_to_first_redeem': 367.0, 'points_received_total_30d': 0.4}], 'near_boundary': [{'client_id': 'e31d0c5f5d', 'uplift': 0.028971261981808993, 'age_clean': 75.0, 'days_to_first_redeem': 413.0, 'points_received_total_30d': 22.2}, {'client_id': '5cb106286b', 'uplift': 0.0289673487489297, 'age_clean': 40.0, 'days_to_first_redeem': 52.0, 'points_received_total_30d': 12.6}, {'client_id': 'f5c601a81c', 'uplift': 0.028844802454976337, 'age_clean': 46.0, 'days_to_first_redeem': 65.0, 'points_received_total_30d': 49.1}]}
+- Visual: `explainability/autolift_representative_cases.svg`
+- Highest uplift examples: eb7881a604, 1222eae540, cbc08f01b1
+- Near-boundary examples: 6c1bb46d9d, 3eeeec1e16, 5b82d8e9a9
+- Lowest uplift examples: 80c304161d, 0b3c425c48, 7d7cffb084
+- Case context: the visual pairs predicted uplift with top feature values, so report readers can inspect why the final candidate ranks customers differently.
 
 ## Hypothesis Loop
 
