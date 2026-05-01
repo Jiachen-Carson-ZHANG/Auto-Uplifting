@@ -2,9 +2,13 @@
 
 This pack adapts the visual explanation structure from `human_baseline_uplift.ipynb` for the AutoLift run. It adds model-performance visuals, targeting diagnostics, feature-level explanation, and an agent decision timeline.
 
-## Human vs AutoLift
+## Human vs AutoLift Pending Re-Audit
 
-| Metric | AutoLift | Human Notebook | Delta |
+The human-baseline workflow is being corrected separately. The table and SVG
+below preserve the previously observed notebook numbers for traceability only;
+do not use them as final win/loss claims.
+
+| Metric | AutoLift Retrospective Reference | Provisional Human Notebook Row | Provisional Delta |
 | --- | --- | --- | --- |
 | Held-out raw Qini AUC | 331.7694 | 328.3899 | +3.3795 |
 | Held-out uplift AUC | 0.06149 | 0.0631 | -0.00161 |
@@ -15,7 +19,9 @@ This pack adapts the visual explanation structure from `human_baseline_uplift.ip
 
 ![Held-out top-k comparison](human_vs_autolift_topk.svg)
 
-AutoLift is a narrow held-out Qini leader. The human notebook remains stronger on held-out uplift AUC and top-k targeting lift, so the correct story is competitive automation with transparent reasoning rather than broad metric dominance.
+The comparison graphic is provisional until the corrected human-baseline run is
+available. The stable claim is about AutoLift's auditable workflow and reasoning
+trail, not a finalized metric win over the human baseline.
 
 ## AutoLift Curves
 
@@ -23,7 +29,9 @@ AutoLift is a narrow held-out Qini leader. The human notebook remains stronger o
 
 ![Held-out uplift curve](autolift_heldout_uplift_curve.svg)
 
-The notebook did not leave prediction-level human artifacts in this workspace, so the human comparison is shown through notebook-reported metrics instead of an overlaid human curve.
+The notebook did not leave prediction-level human artifacts in this workspace, so
+the provisional human comparison is shown through notebook-reported metrics
+instead of an overlaid human curve.
 
 ## Decile Lift
 

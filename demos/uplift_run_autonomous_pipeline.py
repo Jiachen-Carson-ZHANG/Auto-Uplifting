@@ -36,6 +36,10 @@ from src.uplift.reporting import (  # noqa: E402
     generate_submission_artifact,
     validate_submission_artifact,
 )
+from src.uplift.tuning import (  # noqa: E402
+    build_agentic_tuning_plan,
+    write_agentic_tuning_plan,
+)
 from src.uplift.validation import (  # noqa: E402
     compute_treatment_control_balance,
     validate_uplift_dataset,
@@ -338,6 +342,21 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--tuning-max-param-sets", type=int, default=None)
     parser.add_argument(
+        "--write-agentic-tuning-plan",
+        action="store_true",
+        help=(
+            "After the main run, write a deterministic dry-run tuning plan for "
+            "the top internal AutoLift candidates without executing it."
+        ),
+    )
+    parser.add_argument("--agentic-tuning-seed", type=int, default=None)
+    parser.add_argument("--agentic-tuning-top-k", type=int, default=None)
+    parser.add_argument(
+        "--agentic-tuning-max-trials-per-candidate",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
         "--semantic-features",
         action="store_true",
         help="Build semantic feature recipes and let the planner choose among them.",
@@ -403,6 +422,19 @@ def main() -> int:
     tuning_max_param_sets = args.tuning_max_param_sets or int(
         os.getenv("BT5153_TUNING_MAX_PARAM_SETS", "2")
     )
+    write_agentic_tuning = args.write_agentic_tuning_plan or _bool_env(
+        "BT5153_WRITE_AGENTIC_TUNING_PLAN",
+        False,
+    )
+    agentic_tuning_seed = args.agentic_tuning_seed or int(
+        os.getenv("BT5153_AGENTIC_TUNING_SEED", "20260501")
+    )
+    agentic_tuning_top_k = args.agentic_tuning_top_k or int(
+        os.getenv("BT5153_AGENTIC_TUNING_TOP_K", "2")
+    )
+    agentic_tuning_max_trials = args.agentic_tuning_max_trials_per_candidate or int(
+        os.getenv("BT5153_AGENTIC_TUNING_MAX_TRIALS_PER_CANDIDATE", "16")
+    )
     semantic_features = args.semantic_features or (
         not args.baseline_features_only
         and _bool_env("BT5153_SEMANTIC_FEATURES", True)
@@ -462,6 +494,7 @@ def main() -> int:
             f"evaluation_model={evaluation_model}, max_iterations={max_iterations}, "
             f"retry_max_trials={retry_max_trials}, "
             f"pre_run_tuning={enable_pre_run_tuning}, "
+            f"write_agentic_tuning={write_agentic_tuning}, "
             f"semantic_features={semantic_features}, recipes={recipe_names}"
         )
 
@@ -524,6 +557,9 @@ def main() -> int:
 
         print("Stage 5/7: submission preview")
         records = ledger.load()
+        agentic_tuning_plan_path = None
+        agentic_tuning_trial_specs = 0
+        agentic_tuning_candidate_templates: list[str] = []
         champion = _successful_agent_champion(records)
         scoring_artifact = _scoring_artifact_for_champion(
             champion,
@@ -545,6 +581,28 @@ def main() -> int:
                 f"status={record.status} qini_auc={record.qini_auc}"
             )
         _print_final_summary_table(records)
+        if write_agentic_tuning:
+            tuning_plan = build_agentic_tuning_plan(
+                records,
+                llm=planner_llm,
+                tuning_seed=agentic_tuning_seed,
+                top_k=agentic_tuning_top_k,
+                max_trials_per_candidate=agentic_tuning_max_trials,
+            )
+            agentic_tuning_plan_path = write_agentic_tuning_plan(
+                output_dir / "agentic_tuning_plan.json",
+                tuning_plan,
+            )
+            agentic_tuning_trial_specs = len(tuning_plan.trial_specs)
+            agentic_tuning_candidate_templates = [
+                candidate.template_name for candidate in tuning_plan.candidates
+            ]
+            print(
+                "[agentic_tuning] dry-run plan "
+                f"path={agentic_tuning_plan_path} "
+                f"candidates={agentic_tuning_candidate_templates} "
+                f"trial_specs={agentic_tuning_trial_specs}"
+            )
 
         print("Stage 7/7: final artifact index")
         summary = {
@@ -557,6 +615,13 @@ def main() -> int:
             "enable_pre_run_tuning": enable_pre_run_tuning,
             "tuning_seeds": tuning_seeds,
             "tuning_max_param_sets": tuning_max_param_sets,
+            "write_agentic_tuning_plan": write_agentic_tuning,
+            "agentic_tuning_seed": agentic_tuning_seed,
+            "agentic_tuning_top_k": agentic_tuning_top_k,
+            "agentic_tuning_max_trials_per_candidate": agentic_tuning_max_trials,
+            "agentic_tuning_plan_path": agentic_tuning_plan_path,
+            "agentic_tuning_trial_specs": agentic_tuning_trial_specs,
+            "agentic_tuning_candidate_templates": agentic_tuning_candidate_templates,
             "dataset_rows": validation.table_rows,
             "balance_warnings": balance.warnings,
             "n_agent_trials": len(result.trial_records),

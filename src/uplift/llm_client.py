@@ -161,6 +161,80 @@ def _best_stub_record(records: list[dict]) -> dict | None:
     return max(scored, key=lambda record: _record_metric(record) or float("-inf"), default=None)
 
 
+def _stub_tuning_search_space(payload: dict) -> dict:
+    candidates = payload.get("candidates", [])
+    candidates = candidates if isinstance(candidates, list) else []
+    search_spaces = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        estimator = _record_estimator(candidate)
+        template_name = str(
+            candidate.get("template_name")
+            or f"{_record_family(candidate)}_{estimator}"
+        )
+        if estimator == "lightgbm":
+            search_space = {
+                "n_estimators": [300, 400],
+                "learning_rate": [0.03, 0.05],
+                "max_depth": [2, 3],
+                "num_leaves": [7, 15],
+            }
+            rationale = (
+                "Compact LightGBM search around depth, leaves, and learning rate."
+            )
+        elif estimator == "xgboost":
+            search_space = {
+                "n_estimators": [300, 400],
+                "learning_rate": [0.03, 0.05],
+                "max_depth": [2, 3],
+                "min_child_weight": [10, 20],
+            }
+            rationale = (
+                "Compact XGBoost search around depth and child-weight regularization."
+            )
+        elif estimator == "gradient_boosting":
+            search_space = {
+                "n_estimators": [120, 200],
+                "learning_rate": [0.03, 0.05],
+                "max_depth": [2, 3],
+                "min_samples_leaf": [50, 100],
+            }
+            rationale = "Compact sklearn boosting search around tree size and shrinkage."
+        elif estimator == "random_forest":
+            search_space = {
+                "n_estimators": [200, 300],
+                "max_depth": [4, 6],
+                "min_samples_leaf": [50, 100],
+                "max_features": ["sqrt"],
+                "n_jobs": [-1],
+            }
+            rationale = "Compact forest search around depth and leaf regularization."
+        elif estimator == "logistic_regression":
+            search_space = {
+                "C": [0.1, 0.3, 1.0, 3.0],
+                "max_iter": [1000],
+            }
+            rationale = "Compact logistic search around regularization strength."
+        else:
+            search_space = {}
+            rationale = "No deterministic stub search space for this estimator."
+        search_spaces.append(
+            {
+                "template_name": template_name,
+                "rationale": rationale,
+                "search_space": search_space,
+            }
+        )
+    return {
+        "rationale": (
+            "Stub planner proposes bounded deterministic tuning rooms for the "
+            "selected internal AutoLift candidates."
+        ),
+        "search_spaces": search_spaces,
+    }
+
+
 def _summarize_stub_records(records: list[dict]) -> dict:
     successful = [record for record in records if record.get("status") == "success"]
     failed = [record for record in records if record.get("status") == "failed"]
@@ -268,6 +342,10 @@ def _stub_chat(system: str, user: str) -> str:
                 "leakage_controls": ["No target/treatment columns", "Respect temporal policy"],
                 "xai_sanity_checks": ["Check whether age dominates top features"],
             }
+        )
+    if "autolift tuning planner" in system_l or "tuning search space" in system_l:
+        return json.dumps(
+            _stub_tuning_search_space(payload if isinstance(payload, dict) else {})
         )
     if "uplift strategy" in system_l:
         successful_records = []

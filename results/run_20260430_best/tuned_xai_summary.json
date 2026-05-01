@@ -1,0 +1,150 @@
+{
+  "base_estimator": "lightgbm",
+  "champion_hypothesis_id": "agentic_tune__UT-9fb6c6__p02",
+  "champion_run_id": "RUN-2af274da",
+  "champion_template_name": "class_transformation_lightgbm",
+  "explanation_scope": "prediction_sensitivity_and_representative_cases",
+  "feature_semantics_diagnostic": {
+    "age_dominance_warning": true,
+    "behavioral_top5_present": true,
+    "top_feature": "age_clean",
+    "top_feature_is_age": true
+  },
+  "global_top_features": [
+    {
+      "direction": "higher_feature_higher_uplift",
+      "feature": "age_clean",
+      "mean_abs_uplift_change": 0.015497,
+      "spearman_with_uplift": 0.4481
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "days_to_first_redeem",
+      "mean_abs_uplift_change": 0.012509,
+      "spearman_with_uplift": -0.1627
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "points_received_total_30d",
+      "mean_abs_uplift_change": 0.009368,
+      "spearman_with_uplift": -0.359
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_sum_60d",
+      "mean_abs_uplift_change": 0.007623,
+      "spearman_with_uplift": -0.4502
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "account_age_days",
+      "mean_abs_uplift_change": 0.007613,
+      "spearman_with_uplift": -0.3072
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_sum_90d",
+      "mean_abs_uplift_change": 0.007287,
+      "spearman_with_uplift": -0.4815
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "basket_quantity_30d",
+      "mean_abs_uplift_change": 0.007271,
+      "spearman_with_uplift": -0.35
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "points_received_total_lifetime",
+      "mean_abs_uplift_change": 0.006977,
+      "spearman_with_uplift": -0.4102
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "points_spent_to_purchase_ratio_lifetime",
+      "mean_abs_uplift_change": 0.006712,
+      "spearman_with_uplift": -0.1392
+    },
+    {
+      "direction": "higher_feature_lower_uplift",
+      "feature": "purchase_sum_30d",
+      "mean_abs_uplift_change": 0.006702,
+      "spearman_with_uplift": -0.3781
+    }
+  ],
+  "limitations": "Permutation sensitivity explains model behavior; it is not causal proof of treatment effect.",
+  "method": "cached_model_permutation",
+  "model_family": "class_transformation",
+  "n_rows_used": 500,
+  "representative_cases": {
+    "highest_uplift": [
+      {
+        "age_clean": 75.0,
+        "client_id": "eb7881a604",
+        "days_to_first_redeem": 49.0,
+        "points_received_total_30d": 0.7,
+        "uplift": 0.5774086113211041
+      },
+      {
+        "age_clean": 76.0,
+        "client_id": "1222eae540",
+        "days_to_first_redeem": 30.0,
+        "points_received_total_30d": 1.1,
+        "uplift": 0.37302238451549163
+      },
+      {
+        "age_clean": 58.0,
+        "client_id": "23f5f3ba75",
+        "days_to_first_redeem": 92.0,
+        "points_received_total_30d": 3.1,
+        "uplift": 0.3005543800245378
+      }
+    ],
+    "lowest_uplift": [
+      {
+        "age_clean": 36.0,
+        "client_id": "972c01d137",
+        "days_to_first_redeem": 516.0,
+        "points_received_total_30d": 9.0,
+        "uplift": -0.041354290525917325
+      },
+      {
+        "age_clean": 20.0,
+        "client_id": "920765a3cb",
+        "days_to_first_redeem": -1.0,
+        "points_received_total_30d": 1.7,
+        "uplift": -0.042899549274829085
+      },
+      {
+        "age_clean": 32.0,
+        "client_id": "5e7c7b2ad8",
+        "days_to_first_redeem": 253.0,
+        "points_received_total_30d": 19.0,
+        "uplift": -0.04410327860830654
+      }
+    ],
+    "near_boundary": [
+      {
+        "age_clean": 19.0,
+        "client_id": "fd2cb88309",
+        "days_to_first_redeem": 118.0,
+        "points_received_total_30d": 5.3,
+        "uplift": 0.026701812834145633
+      },
+      {
+        "age_clean": 54.0,
+        "client_id": "2578992f72",
+        "days_to_first_redeem": 111.0,
+        "points_received_total_30d": 6.1,
+        "uplift": 0.026450253695952552
+      },
+      {
+        "age_clean": 39.0,
+        "client_id": "96ffb22320",
+        "days_to_first_redeem": 36.0,
+        "points_received_total_30d": 100.3,
+        "uplift": 0.026337046631780936
+      }
+    ]
+  }
+}

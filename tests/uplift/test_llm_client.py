@@ -69,6 +69,35 @@ def test_stub_judge_uses_computed_metrics():
     assert "normalized_qini_auc=0.19" in payload["key_evidence"]
 
 
+def test_stub_tuning_planner_returns_bounded_search_space():
+    llm = make_chat_llm("stub")
+
+    response = llm(
+        "AutoLift tuning planner",
+        json.dumps(
+            {
+                "candidates": [
+                    {
+                        "template_name": "class_transformation_lightgbm",
+                        "uplift_learner_family": "class_transformation",
+                        "base_estimator": "lightgbm",
+                    }
+                ]
+            }
+        ),
+    )
+
+    payload = json.loads(response)
+    search_space = payload["search_spaces"][0]["search_space"]
+    assert payload["search_spaces"][0]["template_name"] == "class_transformation_lightgbm"
+    assert search_space == {
+        "n_estimators": [300, 400],
+        "learning_rate": [0.03, 0.05],
+        "max_depth": [2, 3],
+        "num_leaves": [7, 15],
+    }
+
+
 def test_stub_xai_summarizes_top_features():
     llm = make_chat_llm("stub")
 
