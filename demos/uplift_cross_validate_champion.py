@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,56 @@ CHAMPION_PARAMS = {
     "colsample_bytree": 0.7,
     "reg_lambda": 10.0,
 }
+
+
+@dataclass(frozen=True)
+class CrossValidationCandidate:
+    run_id: str
+    hypothesis_id: str
+    template_name: str
+    learner_family: str
+    base_estimator: str
+    feature_recipe_id: str
+    params: dict[str, Any]
+    feature_artifact_id: str = ""
+    params_hash: str = ""
+    split_seed: int | None = None
+    validation_qini_auc: float | None = None
+    validation_normalized_qini_auc: float | None = None
+    validation_uplift_auc: float | None = None
+    validation_rank: int | None = None
+    source_ledger: str = ""
+
+    def to_summary_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "hypothesis_id": self.hypothesis_id,
+            "template_name": self.template_name,
+            "learner_family": self.learner_family,
+            "base_estimator": self.base_estimator,
+            "feature_recipe_id": self.feature_recipe_id,
+            "feature_artifact_id": self.feature_artifact_id,
+            "params_hash": self.params_hash,
+            "split_seed": self.split_seed,
+            "params": self.params,
+            "validation_rank": self.validation_rank,
+            "validation_qini_auc": self.validation_qini_auc,
+            "validation_normalized_qini_auc": self.validation_normalized_qini_auc,
+            "validation_uplift_auc": self.validation_uplift_auc,
+            "source_ledger": self.source_ledger,
+        }
+
+
+DEFAULT_CHAMPION_CANDIDATE = CrossValidationCandidate(
+    run_id="RUN-c5e6e86f",
+    hypothesis_id="UT-9fb6c6",
+    template_name="class_transformation_lightgbm",
+    learner_family="class_transformation",
+    base_estimator="lightgbm",
+    feature_recipe_id="0b2e3552e7bd",
+    feature_artifact_id="9c740dc37c17",
+    params=dict(CHAMPION_PARAMS),
+)
 
 
 @dataclass(frozen=True)
@@ -132,15 +182,20 @@ def _splitter(
     ).split(labeled)
 
 
-def _champion_spec(feature_recipe_id: str, *, seed: int, spec_id: str) -> UpliftTrialSpec:
+def _candidate_spec(
+    candidate: CrossValidationCandidate,
+    *,
+    seed: int,
+    spec_id: str,
+) -> UpliftTrialSpec:
     return UpliftTrialSpec(
         spec_id=spec_id,
-        hypothesis_id="cv_audit__RUN-c5e6e86f",
-        template_name="class_transformation_lightgbm",
-        learner_family="class_transformation",
-        base_estimator="lightgbm",
-        feature_recipe_id=feature_recipe_id,
-        params=dict(CHAMPION_PARAMS),
+        hypothesis_id=f"cv_audit__{candidate.hypothesis_id}",
+        template_name=candidate.template_name,
+        learner_family=candidate.learner_family,
+        base_estimator=candidate.base_estimator,
+        feature_recipe_id=candidate.feature_recipe_id,
+        params=dict(candidate.params),
         split_seed=seed,
     )
 
@@ -150,15 +205,42 @@ def run_cross_validation(
     *,
     feature_artifact: UpliftFeatureArtifact,
     output_dir: str | Path,
+    candidate: CrossValidationCandidate | None = None,
+    labeled_frame: pd.DataFrame | None = None,
+    pool_name: str = "full_labeled_training_table",
+    selection_policy: str = "fixed champion only; no model selection inside CV",
     n_folds: int = 5,
     seed: int = 20260501,
 ) -> CrossValidationResult:
     if n_folds < 2:
         raise ValueError("n_folds must be at least 2")
 
+    if candidate is None:
+        candidate = replace(
+            DEFAULT_CHAMPION_CANDIDATE,
+            feature_recipe_id=feature_artifact.feature_recipe_id,
+            feature_artifact_id=feature_artifact.feature_artifact_id,
+        )
+    if candidate.feature_recipe_id != feature_artifact.feature_recipe_id:
+        raise ValueError(
+            "candidate feature_recipe_id does not match feature artifact: "
+            f"{candidate.feature_recipe_id} != {feature_artifact.feature_recipe_id}"
+        )
+    if candidate.feature_artifact_id and (
+        candidate.feature_artifact_id != feature_artifact.feature_artifact_id
+    ):
+        raise ValueError(
+            "candidate feature_artifact_id does not match feature artifact: "
+            f"{candidate.feature_artifact_id} != {feature_artifact.feature_artifact_id}"
+        )
+
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
-    labeled = _labeled_feature_frame(contract, feature_artifact)
+    labeled = (
+        labeled_frame.reset_index(drop=True).copy()
+        if labeled_frame is not None
+        else _labeled_feature_frame(contract, feature_artifact)
+    )
     strategy, splits = _splitter(
         labeled,
         contract=contract,
@@ -172,10 +254,10 @@ def run_cross_validation(
         fold_dir.mkdir(parents=True, exist_ok=True)
         train_df = labeled.iloc[train_idx].reset_index(drop=True)
         eval_df = labeled.iloc[eval_idx].reset_index(drop=True)
-        spec = _champion_spec(
-            feature_artifact.feature_recipe_id,
+        spec = _candidate_spec(
+            candidate,
             seed=seed,
-            spec_id=f"CV-{fold_idx:02d}-RUN-c5e6e86f",
+            spec_id=f"CV-{fold_idx:02d}-{_slug(candidate.run_id or candidate.hypothesis_id)}",
         )
         result = run_uplift_template(
             spec,
@@ -221,9 +303,12 @@ def run_cross_validation(
         metrics,
         contract=contract,
         feature_artifact=feature_artifact,
+        candidate=candidate,
         strategy=strategy,
         n_folds=n_folds,
         seed=seed,
+        pool_name=pool_name,
+        selection_policy=selection_policy,
         output_dir=output,
         metrics_path=metrics_path,
     )
@@ -247,9 +332,12 @@ def _summary_payload(
     *,
     contract: UpliftProjectContract,
     feature_artifact: UpliftFeatureArtifact,
+    candidate: CrossValidationCandidate,
     strategy: str,
     n_folds: int,
     seed: int,
+    pool_name: str,
+    selection_policy: str,
     output_dir: Path,
     metrics_path: Path,
 ) -> dict[str, Any]:
@@ -266,11 +354,12 @@ def _summary_payload(
         }
     ]
     return {
-        "champion_run_id": "RUN-c5e6e86f",
-        "template_name": "class_transformation_lightgbm",
-        "learner_family": "class_transformation",
-        "base_estimator": "lightgbm",
-        "params": CHAMPION_PARAMS,
+        "candidate": candidate.to_summary_dict(),
+        "champion_run_id": candidate.run_id,
+        "template_name": candidate.template_name,
+        "learner_family": candidate.learner_family,
+        "base_estimator": candidate.base_estimator,
+        "params": candidate.params,
         "feature_recipe_id": feature_artifact.feature_recipe_id,
         "feature_artifact_id": feature_artifact.feature_artifact_id,
         "feature_metadata_path": feature_artifact.metadata_path,
@@ -278,12 +367,13 @@ def _summary_payload(
         "n_rows": int(metrics["n_eval"].sum()),
         "n_folds": n_folds,
         "seed": seed,
+        "cv_pool": pool_name,
         "split_strategy": strategy,
-        "selection_policy": "fixed champion only; no model selection inside CV",
+        "selection_policy": selection_policy,
         "interpretation_notes": [
             "Raw qini_auc depends on the evaluation fold size; compare normalized_qini_auc across split designs.",
-            "K-fold CV uses 80% train / 20% eval per fold, unlike the original 70/15/15 train/validation/held-out split.",
-            "CV metrics are a stability audit for a fixed champion and must not replace the held-out test comparison.",
+            f"K-fold CV uses 80% train / 20% eval per fold over `{pool_name}`.",
+            "CV metrics are a stability audit for a fixed candidate and must not replace the sealed final audit.",
         ],
         "output_dir": str(output_dir),
         "metrics_path": str(metrics_path),
@@ -302,14 +392,15 @@ def _summary_payload(
 
 def _summary_markdown(summary: dict[str, Any], metrics: pd.DataFrame) -> str:
     lines = [
-        "# Champion Cross-Validation Audit",
+        "# Candidate Cross-Validation Audit",
         "",
-        "This audit keeps the final AutoLift champion fixed and rotates evaluation folds.",
-        "It is not used for model selection.",
+        "This audit keeps one AutoLift candidate fixed and rotates evaluation folds.",
         "",
-        f"- Champion: `{summary['champion_run_id']}`",
+        f"- Candidate: `{summary['champion_run_id']}`",
+        f"- Hypothesis: `{summary['candidate']['hypothesis_id']}`",
         f"- Template: `{summary['template_name']}`",
         f"- Folds: {summary['n_folds']}",
+        f"- CV pool: `{summary['cv_pool']}`",
         f"- Split strategy: `{summary['split_strategy']}`",
         f"- Seed: `{summary['seed']}`",
         "",
@@ -359,6 +450,10 @@ def _metrics_markdown_table(metrics: pd.DataFrame) -> list[str]:
 def _resolve(path: str | Path) -> Path:
     path = Path(path)
     return path if path.is_absolute() else ROOT / path
+
+
+def _slug(value: str) -> str:
+    return "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in value)
 
 
 def _parse_args() -> argparse.Namespace:

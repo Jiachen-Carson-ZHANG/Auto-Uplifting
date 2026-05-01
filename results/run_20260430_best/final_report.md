@@ -4,18 +4,42 @@ Task: retailhero-uplift
 
 ## Decision
 
-Use pre-tuning agent champion RUN-c5e6e86f as the final defensible AutoLift champion. A later tuning audit found that the first deterministic tuning selector could see held-out metrics, so tuned run RUN-2af274da is quarantined as exploratory and must not be presented as the final champion. Against the real human notebook benchmark (`human_baseline_uplift.ipynb`), the defensible AutoLift champion is ahead on held-out raw Qini (+3.3795), while the human notebook remains ahead on held-out uplift AUC and top-k lift rates.
+Use `RUN-f1c30175` as the leakage-clean validation+CV selected AutoLift candidate. Selection was made without internal test/held-out metrics: first rank by validation predictions, then rerank the top 3 with 5-fold CV over the original train+validation pool only. The internal test partition stayed sealed until the final audit.
 
-## Defensible Agent Champion
+Important boundary: `RUN-c5e6e86f` remains the best retrospective held-out main-run row, but it must not be described as the leakage-clean selected champion because the earlier champion logic considered held-out performance. The performance story is therefore more conservative: the strict validation+CV candidate is competitive and auditable, but it does not beat the human notebook on held-out raw Qini.
+
+## Leakage-Clean Validation+CV Selection
+
+- Run ID: RUN-f1c30175
+- Source spec: agentic_tune__UT-bc7585__p14
+- Template: two_model_lightgbm
+- Learner family: two_model
+- Base estimator: lightgbm
+- Validation raw Qini AUC: 353.426059
+- Validation Normalized Qini AUC: 0.426365
+- Validation Uplift AUC: 0.066839
+- CV mean Normalized Qini AUC: 0.396226
+- CV std Normalized Qini AUC: 0.060313
+- CV mean Uplift AUC: 0.066282
+- CV mean Uplift@5%: 0.143441
+- CV mean Uplift@10%: 0.115764
+- Sealed held-out raw Qini AUC: 309.987113
+- Sealed held-out Normalized Qini AUC: 0.248455
+- Sealed held-out Uplift AUC: 0.058746
+- Sealed held-out Uplift@5%: 0.183569
+- Sealed held-out Uplift@10%: 0.111772
+- Sealed held-out Uplift@20%: 0.064553
+- Sealed held-out Uplift@30%: 0.058085
+
+CV artifact: `validation_top3_cv_audit.md`
+
+## Retrospective Held-Out Best Reference
+
+This row is useful for diagnosis and comparison, but not for leakage-clean champion selection.
 
 - Run ID: RUN-c5e6e86f
 - Source spec: UT-9fb6c6
 - Template: class_transformation_lightgbm
-- Learner family: class_transformation
-- Base estimator: lightgbm
-- Raw Qini AUC: 333.462493
-- Normalized Qini AUC: 0.344842
-- Uplift AUC: 0.060678
 - Held-out raw Qini AUC: 331.769404
 - Held-out Normalized Qini AUC: 0.337369
 - Held-out Uplift AUC: 0.06149
@@ -23,7 +47,6 @@ Use pre-tuning agent champion RUN-c5e6e86f as the final defensible AutoLift cham
 - Held-out Uplift@10%: 0.099709
 - Held-out Uplift@20%: 0.071709
 - Held-out Uplift@30%: 0.062456
-- Policy gain: {'top_5pct_zero_cost': 211.258245, 'top_5pct_low_cost': 136.208245, 'top_5pct_medium_cost': -88.941755, 'top_10pct_zero_cost': 271.206372, 'top_10pct_low_cost': 121.156372, 'top_10pct_medium_cost': -328.993628, 'top_20pct_zero_cost': 386.336736, 'top_20pct_low_cost': 86.236736, 'top_20pct_medium_cost': -814.063264, 'top_30pct_zero_cost': 478.888396, 'top_30pct_low_cost': 28.788396, 'top_30pct_medium_cost': -1321.511604}
 
 ## Human Notebook Benchmark
 
@@ -70,7 +93,20 @@ For slide/report comparison, use the best held-out human notebook row above. The
 
 ## Human vs AutoLift Comparison
 
-| Metric | AutoLift Champion | Human Notebook Best Held-out Row | Delta |
+Strict leakage-clean selection:
+
+| Metric | AutoLift Validation+CV Candidate | Human Notebook Best Held-out Row | Delta |
+|---|---:|---:|---:|
+| Held-out raw Qini AUC | 309.9871 | 328.3899 | -18.4028 |
+| Held-out uplift AUC | 0.058746 | 0.0631 | -0.004354 |
+| Held-out uplift@5% | 0.183569 | 0.1637 | +0.019869 |
+| Held-out uplift@10% | 0.111772 | 0.1289 | -0.017128 |
+| Held-out uplift@20% | 0.064553 | 0.0764 | -0.011847 |
+| Held-out uplift@30% | 0.058085 | 0.0627 | -0.004615 |
+
+Retrospective held-out best reference:
+
+| Metric | AutoLift Retrospective Best | Human Notebook Best Held-out Row | Delta |
 |---|---:|---:|---:|
 | Held-out raw Qini AUC | 331.7694 | 328.3899 | +3.3795 |
 | Held-out uplift AUC | 0.06149 | 0.0631 | -0.00161 |
@@ -79,7 +115,7 @@ For slide/report comparison, use the best held-out human notebook row above. The
 | Held-out uplift@20% | 0.071709 | 0.0764 | -0.004691 |
 | Held-out uplift@30% | 0.062456 | 0.0627 | -0.000244 |
 
-Interpretation: the defensible AutoLift champion is a narrow held-out Qini leader, not a broad metric winner. The human notebook remains stronger on held-out uplift AUC and every top-k lift metric, so slides should frame AutoLift's contribution as an auditable end-to-end agentic workflow with competitive Qini performance, not as universal performance dominance.
+Interpretation: the strict validation+CV candidate does not beat the human notebook on held-out raw Qini, uplift AUC, or most top-k lift metrics, although it is stronger at uplift@5%. The honest claim is not universal performance dominance. The stronger contribution is that AutoLift produced an auditable end-to-end agentic workflow, generated candidate families and tuning plans, detected its own leakage risk, and preserved reasoning and artifacts for review.
 
 ## Agentic Tuning Audit
 
@@ -89,6 +125,8 @@ Interpretation: the defensible AutoLift champion is a narrow held-out Qini leade
 - Validation-only audit plan: `agentic_tuning_plan_validation_only.json`
 - Validation-only audit summary: `agentic_tuning_validation_only_execution_summary.json`
 - Validation-only audit ledger: `agentic_tuning_validation_only_ledger.jsonl`
+- Validation top-3 CV audit: `validation_top3_cv_audit.md`
+- Validation top-3 CV leaderboard: `validation_top3_cv_leaderboard.csv`
 - Tuning seed: 20260501
 - Trial count: 32 / 32 successful
 - Candidate families tuned: `class_transformation_lightgbm`, `class_transformation_xgboost`
@@ -97,14 +135,23 @@ Interpretation: the defensible AutoLift champion is a narrow held-out Qini leade
 Audit finding: the original tuning loop did not use the human notebook benchmark,
 but its selector could see internal held-out metrics. That makes the tuned
 RUN-2af274da result invalid for final champion claims. A patched validation-only
-tuning rerun selected `two_model_xgboost` by validation raw Qini (357.375156),
-but its held-out audit Qini was only 317.725387, below both RUN-c5e6e86f and
-the human notebook best held-out row. Therefore tuning is retained as an
-engineering experiment, not as the submitted champion.
+tuning rerun selected `RUN-d97c36d3` / `two_model_xgboost` by validation raw
+Qini (357.375156). A stricter follow-up CV audit reranked the top 3 validation
+candidates using only the original train+validation pool and selected
+`RUN-f1c30175` / `two_model_lightgbm` by mean normalized CV Qini. Only after
+that selection was the sealed internal test audit opened, where `RUN-f1c30175`
+scored 309.987113 raw Qini. Therefore `RUN-f1c30175` is the leakage-clean
+selection result, while `RUN-c5e6e86f` is retained only as a retrospective
+held-out-best reference.
 
 ## Explainability Pack
 
 Visual explanation assets are available in `explainability/EXPLAINABILITY_REPORT.md`.
+
+The current visual pack was generated for `RUN-c5e6e86f`, the retrospective
+held-out-best reference. It is useful for explaining the agent workflow and
+model behavior, but should not be presented as the XAI pack for the strict
+validation+CV selected candidate `RUN-f1c30175`.
 
 The pack adapts the human notebook's explanation style for AutoLift:
 
@@ -128,6 +175,10 @@ No repeated-seed stability groups are available yet.
 | 4f0cb0168773 | post_issue_history | 0.186826 | Higher uplift-AUC and a Qini curve showing separation driven by behavioural recency, points burn-rate and basket dept... | age_dominance_warning=True; behavioral_top5_present=True |
 
 ## Policy Recommendation
+
+This policy block was generated from `RUN-c5e6e86f` artifacts. Treat it as a
+retrospective policy example unless a matching policy/XAI pack is regenerated
+for `RUN-f1c30175`.
 
 - Recommended threshold: 5%
 - Rationale: The 5% cutoff delivers the highest lift rate (14%) and a strong positive ROI (0.40), while aligning with the elbow threshold to focus on top responders under budget.

@@ -1,9 +1,15 @@
 # Best Autonomous Run — 2026-04-30
 
-**Defensible champion:** class_transformation + LightGBM on `hybrid_safe_semantic_v1`
-- Held-out raw Qini: **331.77** (`RUN-c5e6e86f`)
-- Human notebook comparison: AutoLift raw held-out Qini **331.77** vs best `human_baseline_uplift.ipynb` held-out row **328.39** (+3.38 raw Qini). The human notebook remains higher on held-out uplift AUC and top-k lift rates.
-- Val/HO gap: −1.69 raw Qini
+**Leakage-clean selected candidate:** two_model + LightGBM from validation-top-3 CV
+- Selected run: `RUN-f1c30175` / `agentic_tune__UT-bc7585__p14`
+- Selection rule: validation predictions choose top 3; 5-fold CV reranks those candidates on the original train+validation pool only; the internal test partition is sealed until final audit.
+- CV mean normalized Qini: **0.396226**
+- Sealed held-out raw Qini: **309.99**
+- Human notebook comparison: strict AutoLift held-out raw Qini **309.99** vs best `human_baseline_uplift.ipynb` held-out row **328.39**. AutoLift is ahead on held-out uplift@5%, but not on raw Qini, uplift AUC, or most top-k lift rates.
+
+**Retrospective held-out best reference:** `RUN-c5e6e86f`
+- Held-out raw Qini: **331.77**
+- Status: useful audit/reference row, not the leakage-clean selected champion.
 - XAI top features: age_clean, days_to_first_redeem, points_received_total_30d
 
 ## Files
@@ -20,6 +26,8 @@
 | `agentic_tuning_plan_validation_only.json` | Patched validation-only tuning plan; no held-out metrics in candidate selection |
 | `agentic_tuning_validation_only_execution_summary.json` | Patched tuning audit summary; validation-selected champion fails held-out audit |
 | `agentic_tuning_validation_only_ledger.jsonl` | Combined ledger for the patched validation-only tuning specs |
+| `validation_top3_cv_audit.md` | Leakage-clean top-3 CV audit; internal test partition excluded from CV |
+| `validation_top3_cv_leaderboard.csv` | CV leaderboard for the top 3 validation-selected candidates |
 | `tuned_submission_summary.json` | Quarantined tuned submission metadata; do not use for final claim |
 | `tuned_xai_summary.json` | Quarantined tuned XAI summary for `RUN-2af274da` |
 | `hypotheses.jsonl` | Hypothesis lifecycle records |
@@ -42,13 +50,15 @@ Switching from `rfm_baseline` (27k pre-issue transactions) to `hybrid_safe_seman
 pure demographics (`age_clean` only) to include behavioral signals
 (`days_to_first_redeem`, `points_received_total_30d`).
 
-Against the real human notebook comparison, defensible AutoLift is a narrow
-held-out Qini leader: 331.77 vs 328.39 raw Qini. The human notebook remains ahead
-on held-out uplift AUC and the top-k lift rates, so the performance claim should
-be precise rather than exaggerated.
+Against the real human notebook comparison, the leakage-clean selected AutoLift
+candidate is not the raw-Qini winner: 309.99 vs 328.39 raw Qini. It is ahead on
+held-out uplift@5%, but the human notebook remains ahead on held-out uplift AUC
+and most top-k lift rates. The performance claim should be precise rather than
+exaggerated.
 
-The agent's verdict ceiling correctly blocked two overfitting trials (inconclusive)
-and selected the strongest supported main-run champion.
+The agent story should emphasize the end-to-end workflow: it generated trials,
+tuned deterministically, detected the held-out leakage risk, reran a
+validation-only top-3 CV audit, and preserved the reasoning and artifacts.
 
 ## Explainability Pack
 
@@ -63,7 +73,8 @@ Open `explainability/EXPLAINABILITY_REPORT.md` for report-ready visuals:
 
 This supports the main agent story: AutoLift performs the full uplift workflow
 end to end, records the rationale behind each trial, and exposes the decision
-path that led to the final champion.
+path. The current visual pack is for `RUN-c5e6e86f`, the retrospective held-out
+best reference, not the strict validation+CV selected candidate `RUN-f1c30175`.
 
 ## Agentic Tuning Audit
 
@@ -83,5 +94,8 @@ A patched validation-only rerun selected candidates without held-out metrics:
 - `two_model_xgboost`
 - `two_model_lightgbm`
 
-The validation-only tuned champion had validation raw Qini `357.375156` but
-held-out audit Qini `317.725387`, so it does not replace `RUN-c5e6e86f`.
+The validation-only raw-Qini winner had validation raw Qini `357.375156`.
+A follow-up top-3 CV audit selected `RUN-f1c30175` by mean normalized CV Qini
+without using the internal test partition. Its sealed held-out raw Qini is
+`309.987113`, so the strict selection result is honest but not a human-baseline
+raw-Qini win. `RUN-c5e6e86f` remains only a retrospective held-out-best reference.
