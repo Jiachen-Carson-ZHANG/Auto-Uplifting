@@ -1,0 +1,600 @@
+{
+  "budget_rule": "min(16, 4 * tunable_parameter_count) per candidate",
+  "candidates": [
+    {
+      "base_estimator": "xgboost",
+      "existing_params_hash": "c19b035ec366",
+      "feature_recipe_id": "fd65515ef37c",
+      "learner_family": "two_model",
+      "post_selection_metrics_hidden": true,
+      "qini_auc": 348.996812,
+      "rank": 1,
+      "score": 0.408278,
+      "source_hypothesis_id": "UT-35f725",
+      "source_run_id": "RUN-82e39e00",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost",
+      "uplift_auc": 0.064369
+    },
+    {
+      "base_estimator": "lightgbm",
+      "existing_params_hash": "26e798d18994",
+      "feature_recipe_id": "fd65515ef37c",
+      "learner_family": "two_model",
+      "post_selection_metrics_hidden": true,
+      "qini_auc": 348.851339,
+      "rank": 2,
+      "score": 0.407684,
+      "source_hypothesis_id": "UT-bc7585",
+      "source_run_id": "RUN-e77b6be9",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm",
+      "uplift_auc": 0.065052
+    }
+  ],
+  "llm_rationale": "Both ledger winners already perform strongly, so we focus on a compact refinement of the most influential hyper-parameters only. Following the budget rule (\u226416 total trials per candidate), we select four knobs per model and give each exactly two well-spaced values. This yields 2\u2074 = 16 configurations, the maximum allowed, while keeping the search targeted around proven default settings.",
+  "search_spaces": [
+    {
+      "candidate": {
+        "base_estimator": "xgboost",
+        "existing_params_hash": "c19b035ec366",
+        "feature_recipe_id": "fd65515ef37c",
+        "learner_family": "two_model",
+        "post_selection_metrics_hidden": true,
+        "qini_auc": 348.996812,
+        "rank": 1,
+        "score": 0.408278,
+        "source_hypothesis_id": "UT-35f725",
+        "source_run_id": "RUN-82e39e00",
+        "split_seed": 42,
+        "template_name": "two_model_xgboost",
+        "uplift_auc": 0.064369
+      },
+      "rationale": "Learning-rate, tree depth and tree count govern bias-variance, while subsample controls stochasticity; together they usually deliver the biggest uplift changes with minimal interactions. Other XGBoost knobs are left fixed to keep the grid small.",
+      "search_space": {
+        "learning_rate": [
+          0.03,
+          0.07
+        ],
+        "max_depth": [
+          3,
+          5
+        ],
+        "n_estimators": [
+          250,
+          500
+        ],
+        "subsample": [
+          0.7,
+          0.9
+        ]
+      },
+      "trial_budget": 16,
+      "warnings": []
+    },
+    {
+      "candidate": {
+        "base_estimator": "lightgbm",
+        "existing_params_hash": "26e798d18994",
+        "feature_recipe_id": "fd65515ef37c",
+        "learner_family": "two_model",
+        "post_selection_metrics_hidden": true,
+        "qini_auc": 348.851339,
+        "rank": 2,
+        "score": 0.407684,
+        "source_hypothesis_id": "UT-bc7585",
+        "source_run_id": "RUN-e77b6be9",
+        "split_seed": 42,
+        "template_name": "two_model_lightgbm",
+        "uplift_auc": 0.065052
+      },
+      "rationale": "LightGBM responsiveness is dominated by learning rate, leaf count (capacity), boosting rounds and row subsampling. Discrete pairs span conservative vs. more aggressive settings while honouring the 16-trial budget.",
+      "search_space": {
+        "learning_rate": [
+          0.02,
+          0.05
+        ],
+        "n_estimators": [
+          300,
+          600
+        ],
+        "num_leaves": [
+          31,
+          55
+        ],
+        "subsample": [
+          0.7,
+          0.9
+        ]
+      },
+      "trial_budget": 16,
+      "warnings": []
+    }
+  ],
+  "selection_score_definition": "validation normalized Qini when available, falling back to validation raw Qini. Held-out metrics are hidden from tuning selection and used only for post-selection audit.",
+  "top_k": 2,
+  "trial_specs": [
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p01",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 500,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-01-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p02",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 250,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-02-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p03",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 250,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-03-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p04",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 250,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-04-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p05",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 250,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-05-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p06",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 500,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-06-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p07",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 500,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-07-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p08",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 3,
+        "n_estimators": 500,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-08-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p09",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 500,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-09-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p10",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 250,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-10-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p11",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 250,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-11-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p12",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 500,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-12-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p13",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 250,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-13-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p14",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 3,
+        "n_estimators": 500,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-14-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p15",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.07,
+        "max_depth": 5,
+        "n_estimators": 250,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-01-15-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "xgboost",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-35f725__p16",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 5,
+        "n_estimators": 500,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-01-16-two-model-xgboost",
+      "split_seed": 42,
+      "template_name": "two_model_xgboost"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p01",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 600,
+        "num_leaves": 31,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-01-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p02",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 300,
+        "num_leaves": 55,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-02-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p03",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 600,
+        "num_leaves": 55,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-03-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p04",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 600,
+        "num_leaves": 31,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-04-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p05",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 300,
+        "num_leaves": 55,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-05-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p06",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 300,
+        "num_leaves": 55,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-06-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p07",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 600,
+        "num_leaves": 31,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-07-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p08",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 600,
+        "num_leaves": 55,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-08-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p09",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 300,
+        "num_leaves": 55,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-09-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p10",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-10-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p11",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 600,
+        "num_leaves": 31,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-11-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p12",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 600,
+        "num_leaves": 55,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-12-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p13",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 600,
+        "num_leaves": 55,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-13-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p14",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-14-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p15",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.02,
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "subsample": 0.9
+      },
+      "spec_id": "AT-02-15-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    },
+    {
+      "base_estimator": "lightgbm",
+      "feature_recipe_id": "fd65515ef37c",
+      "hypothesis_id": "agentic_tune__UT-bc7585__p16",
+      "learner_family": "two_model",
+      "params": {
+        "learning_rate": 0.05,
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "subsample": 0.7
+      },
+      "spec_id": "AT-02-16-two-model-lightgbm",
+      "split_seed": 42,
+      "template_name": "two_model_lightgbm"
+    }
+  ],
+  "tuning_seed": 20260501,
+  "warnings": []
+}

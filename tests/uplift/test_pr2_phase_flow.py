@@ -130,6 +130,36 @@ def test_feature_semantics_agent_selects_approved_recipe(tmp_path):
     assert decision.temporal_policy == "post_issue_history"
 
 
+def test_feature_semantics_agent_normalizes_pre_issue_history_synonym(tmp_path):
+    ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
+
+    def llm(system: str, user: str) -> str:
+        return (
+            '{"feature_recipe":"rfm_baseline",'
+            '"temporal_policy":"pre_issue_history",'
+            '"rationale":"Use only pre-issue history to avoid leakage.",'
+            '"expected_signal":"Strict temporal controls should remain valid.",'
+            '"model_family_hints":["two_model"],'
+            '"leakage_controls":["pre issue cutoff"],'
+            '"xai_sanity_checks":["no post treatment leakage"]}'
+        )
+
+    agent = FeatureSemanticsAgent(ledger, llm)
+    decision = agent.run(
+        context=RetrievedContext(
+            similar_recipes=[],
+            supported_hypotheses=[],
+            refuted_hypotheses=[],
+            best_learner_family="two_model",
+            failed_runs=[],
+            summary="Prefer strict temporal features.",
+        ),
+        available_feature_recipes=["rfm_baseline", "human_semantic_v1"],
+    )
+
+    assert decision.temporal_policy == "pre_issue_only"
+
+
 def test_feature_semantics_agent_falls_back_to_approved_recipe(tmp_path):
     ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
 

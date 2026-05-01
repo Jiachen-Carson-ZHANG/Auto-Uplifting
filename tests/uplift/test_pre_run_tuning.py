@@ -58,32 +58,36 @@ def test_build_pre_run_tuning_specs_expands_model_into_seeded_candidates():
     }
 
 
-def test_select_stable_tuning_record_penalizes_validation_only_spikes(tmp_path):
+def test_select_stable_tuning_record_uses_validation_only(tmp_path):
     good = [0.9, 0.8, 0.3, 0.2, -0.1, -0.2, 0.7, -0.3]
-    unstable = SimpleNamespace(
+    weaker_validation = [0.2, 0.1, 0.0, -0.1, -0.2, -0.3, 0.3, -0.4]
+    validation_best = SimpleNamespace(
         status="success",
         artifact_paths={
-            "uplift_scores": _write_scores(tmp_path / "unstable_val.csv", good),
+            "uplift_scores": _write_scores(tmp_path / "validation_best_val.csv", good),
             "held_out_predictions": _write_scores(
-                tmp_path / "unstable_held.csv",
+                tmp_path / "validation_best_held.csv",
                 [-value for value in good],
             ),
         },
     )
-    stable = SimpleNamespace(
+    held_out_best = SimpleNamespace(
         status="success",
         artifact_paths={
-            "uplift_scores": _write_scores(tmp_path / "stable_val.csv", good),
-            "held_out_predictions": _write_scores(tmp_path / "stable_held.csv", good),
+            "uplift_scores": _write_scores(
+                tmp_path / "held_out_best_val.csv",
+                weaker_validation,
+            ),
+            "held_out_predictions": _write_scores(tmp_path / "held_out_best_held.csv", good),
         },
     )
 
-    selected = select_stable_tuning_record([unstable, stable])
+    selected = select_stable_tuning_record([validation_best, held_out_best])
 
-    assert selected is stable
+    assert selected is validation_best
 
 
-def test_select_top_tuning_candidates_uses_internal_stability_not_external_baseline():
+def test_select_top_tuning_candidates_uses_validation_not_holdout_or_external_baseline():
     records = [
         _record(
             "RUN-manual",
@@ -132,7 +136,7 @@ def test_select_top_tuning_candidates_uses_internal_stability_not_external_basel
     selected = select_top_tuning_candidates(records, top_k=2)
 
     assert [(c.learner_family, c.base_estimator) for c in selected] == [
-        ("class_transformation", "lightgbm"),
+        ("two_model", "lightgbm"),
         ("class_transformation", "xgboost"),
     ]
     assert all("manual" not in c.source_hypothesis_id for c in selected)
@@ -231,6 +235,7 @@ def test_agentic_tuning_plan_calls_llm_and_samples_deterministically_without_hum
     assert "human_baseline" not in prompt
     assert "328.3899" not in prompt
     assert "Human Notebook" not in prompt
+    assert "held_out" not in prompt
     assert len(plan.candidates) == 2
     assert len(plan.trial_specs) == 32
     assert [spec.params for spec in plan.trial_specs] == [
@@ -309,6 +314,9 @@ def test_write_agentic_tuning_plan_saves_audit_json(tmp_path):
     assert '"tuning_seed": 20260501' in text
     assert '"trial_specs"' in text
     assert "human_baseline" not in text
+    assert "held_out" not in text
+    assert "held_out_qini_auc" not in text
+    assert "held_out_uplift_auc" not in text
 
 
 def _record(

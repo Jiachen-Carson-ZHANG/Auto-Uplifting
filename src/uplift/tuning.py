@@ -7,7 +7,7 @@ import json
 import math
 import random
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -152,15 +152,17 @@ class AgenticTuningPlan:
             "top_k": self.top_k,
             "budget_rule": self.budget_rule,
             "selection_score_definition": (
-                "min(validation, held_out) - 0.25 * abs(held_out - validation), "
-                "using normalized Qini artifacts when available and raw Qini "
-                "ledger metrics otherwise"
+                "validation normalized Qini when available, falling back to "
+                "validation raw Qini. Held-out metrics are hidden from tuning "
+                "selection and used only for post-selection audit."
             ),
             "llm_rationale": self.llm_rationale,
-            "candidates": [asdict(candidate) for candidate in self.candidates],
+            "candidates": [
+                _candidate_plan_dict(candidate) for candidate in self.candidates
+            ],
             "search_spaces": [
                 {
-                    "candidate": asdict(search_space.candidate),
+                    "candidate": _candidate_plan_dict(search_space.candidate),
                     "rationale": search_space.rationale,
                     "search_space": search_space.search_space,
                     "warnings": search_space.warnings,
@@ -320,7 +322,7 @@ def select_top_tuning_candidates(
     for record in records:
         if not _is_tunable_record(record):
             continue
-        score = _agentic_candidate_score(record)
+        score = _validation_candidate_score(record)
         if not math.isfinite(score):
             continue
         key = (record.template_name, record.feature_recipe_id)
@@ -487,11 +489,11 @@ def write_agentic_tuning_plan(path: str | Path, plan: AgenticTuningPlan) -> str:
 def select_stable_tuning_record(
     records: Iterable[UpliftExperimentRecord],
 ) -> UpliftExperimentRecord | None:
-    """Choose the candidate with the best stability-adjusted normalized Qini."""
+    """Choose the candidate with the best validation-only tuning score."""
     successful = [record for record in records if record.status == "success"]
     if not successful:
         return None
-    return max(successful, key=_stable_record_score)
+    return max(successful, key=_validation_record_score)
 
 
 def tuning_summary(records: Iterable[UpliftExperimentRecord]) -> list[dict[str, object]]:
@@ -511,7 +513,8 @@ def tuning_summary(records: Iterable[UpliftExperimentRecord]) -> list[dict[str, 
                 "params_hash": record.params_hash,
                 "val_normalized_qini": val,
                 "held_out_normalized_qini": held,
-                "stable_score": _stable_record_score(record),
+                "selection_score": _validation_record_score(record),
+                "selection_score_source": "validation_only",
                 "error": record.error,
             }
         )
@@ -546,19 +549,28 @@ def _is_tunable_record(record: UpliftExperimentRecord) -> bool:
     return True
 
 
-def _agentic_candidate_score(record: UpliftExperimentRecord) -> float:
+def _candidate_plan_dict(candidate: TuningCandidate) -> dict[str, Any]:
+    return {
+        "rank": candidate.rank,
+        "source_run_id": candidate.source_run_id,
+        "source_hypothesis_id": candidate.source_hypothesis_id,
+        "template_name": candidate.template_name,
+        "learner_family": candidate.learner_family,
+        "base_estimator": candidate.base_estimator,
+        "feature_recipe_id": candidate.feature_recipe_id,
+        "split_seed": candidate.split_seed,
+        "score": candidate.score,
+        "qini_auc": candidate.qini_auc,
+        "uplift_auc": candidate.uplift_auc,
+        "existing_params_hash": candidate.existing_params_hash,
+        "post_selection_metrics_hidden": True,
+    }
+
+
+def _validation_candidate_score(record: UpliftExperimentRecord) -> float:
     val = _normalized_qini_from_record(record, "uplift_scores")
-    held = _normalized_qini_from_record(record, "held_out_predictions")
-    if val is not None and held is not None:
-        return min(val, held) - 0.25 * abs(held - val)
     if val is not None:
         return val
-    if record.qini_auc is not None and record.held_out_qini_auc is not None:
-        validation = float(record.qini_auc)
-        holdout = float(record.held_out_qini_auc)
-        return min(validation, holdout) - 0.25 * abs(holdout - validation)
-    if record.held_out_qini_auc is not None:
-        return float(record.held_out_qini_auc)
     if record.qini_auc is not None:
         return float(record.qini_auc)
     return float("-inf")
@@ -609,13 +621,15 @@ def _llm_tuning_proposal(
     system = (
         "You are an AutoLift tuning planner. Propose small, discrete tuning "
         "search spaces using only the supplied AutoLift ledger candidates. "
-        "Do not use any external benchmark, report result, or private score. "
+        "Do not use any external benchmark, report result, held-out metric, "
+        "or private score. "
         "Return strict JSON with keys: rationale and search_spaces."
     )
     payload = {
         "selection_policy": (
-            "Candidates are already selected from internal validation/holdout "
-            "stability. Propose bounded search rooms only."
+            "Candidates are already selected from internal validation evidence "
+            "only. Propose bounded search rooms only. Held-out metrics are not "
+            "available during tuning."
         ),
         "budget_rule": "min(16, 4 * tunable_parameter_count) per candidate",
         "candidates": [
@@ -629,9 +643,7 @@ def _llm_tuning_proposal(
                 "feature_recipe_id": candidate.feature_recipe_id,
                 "score": candidate.score,
                 "qini_auc": candidate.qini_auc,
-                "held_out_qini_auc": candidate.held_out_qini_auc,
                 "uplift_auc": candidate.uplift_auc,
-                "held_out_uplift_auc": candidate.held_out_uplift_auc,
             }
             for candidate in candidates
         ],
@@ -818,11 +830,8 @@ def _slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "candidate"
 
 
-def _stable_record_score(record: UpliftExperimentRecord) -> float:
+def _validation_record_score(record: UpliftExperimentRecord) -> float:
     val = _normalized_qini_from_record(record, "uplift_scores")
-    held = _normalized_qini_from_record(record, "held_out_predictions")
-    if val is not None and held is not None:
-        return min(val, held) - 0.25 * abs(held - val)
     if val is not None:
         return val
     if record.qini_auc is not None:

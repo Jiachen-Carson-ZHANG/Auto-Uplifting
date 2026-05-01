@@ -260,7 +260,7 @@ def _normalize_temporal_policy_str(raw: str) -> str:
     every plausible LLM variant resolves to one of the three valid values.
     """
     slug = "".join(ch for ch in raw.lower() if ch.isalnum())
-    if slug in {"preissueonly", "preissue"}:
+    if slug in {"preissueonly", "preissue", "preissuehistory"}:
         return "pre_issue_only"
     if slug in {"postissuehistory", "postissue", "postissuepurchasehistory"}:
         return "post_issue_history"

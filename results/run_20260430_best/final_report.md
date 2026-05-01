@@ -4,36 +4,25 @@ Task: retailhero-uplift
 
 ## Decision
 
-Use tuned agent champion RUN-2af274da as the final AutoLift champion. The deterministic agentic tuning stage improved held-out raw Qini from 331.7694 to 338.6015. Against the real human notebook benchmark (`human_baseline_uplift.ipynb`), tuned AutoLift is ahead on held-out raw Qini (+10.2116), held-out uplift AUC (+0.00087), uplift@5% (+0.011879), and uplift@20% (+0.001620). The human notebook remains ahead on uplift@10% and uplift@30%, so the claim should be precise rather than overstated.
+Use pre-tuning agent champion RUN-c5e6e86f as the final defensible AutoLift champion. A later tuning audit found that the first deterministic tuning selector could see held-out metrics, so tuned run RUN-2af274da is quarantined as exploratory and must not be presented as the final champion. Against the real human notebook benchmark (`human_baseline_uplift.ipynb`), the defensible AutoLift champion is ahead on held-out raw Qini (+3.3795), while the human notebook remains ahead on held-out uplift AUC and top-k lift rates.
 
-## Tuned Agent Champion
-
-- Run ID: RUN-2af274da
-- Source spec: AT-01-02-class-transformation-lightgbm
-- Template: class_transformation_lightgbm
-- Learner family: class_transformation
-- Base estimator: lightgbm
-- Params: learning_rate=0.03, max_depth=3, n_estimators=300, num_leaves=31
-- Raw Qini AUC: 355.881014
-- Uplift AUC: 0.064058
-- Held-out raw Qini AUC: 338.601489
-- Held-out Uplift AUC: 0.06397
-- Held-out Uplift@5%: 0.175579
-- Held-out Uplift@10%: 0.107662
-- Held-out Uplift@20%: 0.07802
-- Held-out Uplift@30%: 0.060954
-- Validated submission: `artifacts/uplift/run_20260430_221602/agentic_tuning/uplift_submission.csv`
-
-## Pre-Tuning Agent Champion
+## Defensible Agent Champion
 
 - Run ID: RUN-c5e6e86f
+- Source spec: UT-9fb6c6
 - Template: class_transformation_lightgbm
 - Learner family: class_transformation
 - Base estimator: lightgbm
+- Raw Qini AUC: 333.462493
 - Normalized Qini AUC: 0.344842
 - Uplift AUC: 0.060678
+- Held-out raw Qini AUC: 331.769404
 - Held-out Normalized Qini AUC: 0.337369
 - Held-out Uplift AUC: 0.06149
+- Held-out Uplift@5%: 0.139969
+- Held-out Uplift@10%: 0.099709
+- Held-out Uplift@20%: 0.071709
+- Held-out Uplift@30%: 0.062456
 - Policy gain: {'top_5pct_zero_cost': 211.258245, 'top_5pct_low_cost': 136.208245, 'top_5pct_medium_cost': -88.941755, 'top_10pct_zero_cost': 271.206372, 'top_10pct_low_cost': 121.156372, 'top_10pct_medium_cost': -328.993628, 'top_20pct_zero_cost': 386.336736, 'top_20pct_low_cost': 86.236736, 'top_20pct_medium_cost': -814.063264, 'top_30pct_zero_cost': 478.888396, 'top_30pct_low_cost': 28.788396, 'top_30pct_medium_cost': -1321.511604}
 
 ## Human Notebook Benchmark
@@ -83,30 +72,35 @@ For slide/report comparison, use the best held-out human notebook row above. The
 
 | Metric | AutoLift Champion | Human Notebook Best Held-out Row | Delta |
 |---|---:|---:|---:|
-| Held-out raw Qini AUC | 338.6015 | 328.3899 | +10.2116 |
-| Held-out uplift AUC | 0.06397 | 0.0631 | +0.00087 |
-| Held-out uplift@5% | 0.175579 | 0.1637 | +0.011879 |
-| Held-out uplift@10% | 0.107662 | 0.1289 | -0.021238 |
-| Held-out uplift@20% | 0.07802 | 0.0764 | +0.001620 |
-| Held-out uplift@30% | 0.060954 | 0.0627 | -0.001746 |
+| Held-out raw Qini AUC | 331.7694 | 328.3899 | +3.3795 |
+| Held-out uplift AUC | 0.06149 | 0.0631 | -0.00161 |
+| Held-out uplift@5% | 0.139969 | 0.1637 | -0.023731 |
+| Held-out uplift@10% | 0.099709 | 0.1289 | -0.029191 |
+| Held-out uplift@20% | 0.071709 | 0.0764 | -0.004691 |
+| Held-out uplift@30% | 0.062456 | 0.0627 | -0.000244 |
 
-Interpretation: deterministic agentic tuning makes AutoLift the held-out Qini leader and improves several lift metrics, but the real human notebook remains competitive on uplift@10% and uplift@30%. Present the result as a stronger tuned AutoLift champion with transparent caveats, not as broad dominance.
+Interpretation: the defensible AutoLift champion is a narrow held-out Qini leader, not a broad metric winner. The human notebook remains stronger on held-out uplift AUC and every top-k lift metric, so slides should frame AutoLift's contribution as an auditable end-to-end agentic workflow with competitive Qini performance, not as universal performance dominance.
 
-## Agentic Tuning Execution
+## Agentic Tuning Audit
 
 - Plan artifact: `agentic_tuning_plan.json`
 - Execution summary: `agentic_tuning_execution_summary.json`
 - Tuning ledger: `agentic_tuning_ledger.jsonl`
+- Validation-only audit plan: `agentic_tuning_plan_validation_only.json`
+- Validation-only audit summary: `agentic_tuning_validation_only_execution_summary.json`
+- Validation-only audit ledger: `agentic_tuning_validation_only_ledger.jsonl`
 - Tuning seed: 20260501
 - Trial count: 32 / 32 successful
 - Candidate families tuned: `class_transformation_lightgbm`, `class_transformation_xgboost`
 - Tuned XAI summary: `tuned_xai_summary.json`
 
-The tuning loop did not use the human notebook benchmark for candidate selection
-or hyperparameter search. It selected the top two candidates from the AutoLift
-runtime ledger, used the LLM only to propose bounded search rooms, validated
-those rooms with programmatic guardrails, and executed the sampled specs through
-the same trial runner as the original pipeline.
+Audit finding: the original tuning loop did not use the human notebook benchmark,
+but its selector could see internal held-out metrics. That makes the tuned
+RUN-2af274da result invalid for final champion claims. A patched validation-only
+tuning rerun selected `two_model_xgboost` by validation raw Qini (357.375156),
+but its held-out audit Qini was only 317.725387, below both RUN-c5e6e86f and
+the human notebook best held-out row. Therefore tuning is retained as an
+engineering experiment, not as the submitted champion.
 
 ## Explainability Pack
 
