@@ -31,7 +31,6 @@ class AgenticTuningExecutionResult:
     champion_hypothesis_id: str | None
     champion_template_name: str | None
     champion_qini_auc: float | None
-    champion_held_out_qini_auc: float | None
 
 
 def load_agentic_tuning_plan(path: str | Path) -> dict[str, Any]:
@@ -137,7 +136,6 @@ def execute_agentic_tuning_plan(
         champion_hypothesis_id=champion.hypothesis_id if champion else None,
         champion_template_name=champion.template_name if champion else None,
         champion_qini_auc=champion.qini_auc if champion else None,
-        champion_held_out_qini_auc=champion.held_out_qini_auc if champion else None,
     )
 
 
@@ -184,7 +182,6 @@ def _champion_summary(record: UpliftExperimentRecord | None) -> dict[str, Any] |
         "feature_recipe_id": record.feature_recipe_id,
         "params_hash": record.params_hash,
         "qini_auc": record.qini_auc,
-        "held_out_qini_auc": record.held_out_qini_auc,
         "uplift_auc": record.uplift_auc,
-        "held_out_uplift_auc": record.held_out_uplift_auc,
+        "selection_score_source": "validation_only",
     }

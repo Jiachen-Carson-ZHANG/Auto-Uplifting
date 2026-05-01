@@ -135,11 +135,15 @@ def test_execute_agentic_tuning_plan_runs_specs_and_writes_combined_audit(tmp_pa
     assert summary["n_records"] == 2
     assert summary["plan_path"] == str(plan_path)
     assert summary["champion"]["run_id"] == result.champion_run_id
+    summary_text = Path(result.summary_path).read_text()
+    assert "held_out_qini_auc" not in summary_text
+    assert "held_out_normalized_qini" not in summary_text
 
     for record in result.records:
         assert record.status == "success"
         assert Path(record.artifact_paths["predictions"]).exists()
         assert Path(record.artifact_paths["model"]).exists()
+        assert "held_out_predictions" not in record.artifact_paths
         predictions = pd.read_csv(record.artifact_paths["predictions"])
         assert "uplift" in predictions.columns
 

@@ -207,7 +207,7 @@ def test_render_visuals_writes_markdown_and_svg_assets(tmp_path):
     report = paths.report.read_text()
     assert "Prediction-Level XAI" in report
     assert "Representative Cases" in report
-    assert "agent-specific contribution" in report
+    assert "quarantined process trace" in report
     assert "autolift_xai_top_drivers.svg" in report
     assert "autolift_representative_cases.svg" in report
     xai_summary = json.loads(paths.xai_summary.read_text())

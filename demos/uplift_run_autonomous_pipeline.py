@@ -228,19 +228,14 @@ def _successful_agent_champion(records):
         raise RuntimeError("No successful autonomous trial is available for submission scoring.")
     return max(
         successful,
-        key=_stability_adjusted_champion_score,
+        key=_validation_champion_score,
     )
 
 
-def _stability_adjusted_champion_score(record) -> float:
+def _validation_champion_score(record) -> float:
     validation = _normalized_qini_from_artifact(record, "uplift_scores")
-    held_out = _normalized_qini_from_artifact(record, "held_out_predictions")
-    if validation is not None and held_out is not None:
-        return min(validation, held_out)
     if validation is not None:
         return validation
-    if held_out is not None:
-        return held_out
     return record.qini_auc if record.qini_auc is not None else float("-inf")
 
 
@@ -299,13 +294,12 @@ def _print_final_summary_table(records) -> None:
     print("FINAL SUMMARY TABLE")
     print(
         "| role | run_id | learner | estimator | recipe | "
-        "val_norm_qini | holdout_norm_qini | uplift@10 | verdict |"
+        "val_norm_qini | uplift@10 | verdict |"
     )
-    print("|---|---|---|---|---|---:|---:|---:|---|")
+    print("|---|---|---|---|---|---:|---:|---|")
     for record in main_records:
         role = "manual" if record.hypothesis_id == "manual_baseline" else "agent"
         val_norm = _normalized_qini_from_artifact(record, "uplift_scores")
-        held_norm = _normalized_qini_from_artifact(record, "held_out_predictions")
         print(
             "| "
             f"{role} | "
@@ -314,7 +308,6 @@ def _print_final_summary_table(records) -> None:
             f"{record.base_estimator} | "
             f"{_recipe_display_name(record)} | "
             f"{_format_summary_metric(val_norm)} | "
-            f"{_format_summary_metric(held_norm)} | "
             f"{_uplift_at_text(record, 'top_10pct')} | "
             f"{record.verdict} |"
         )

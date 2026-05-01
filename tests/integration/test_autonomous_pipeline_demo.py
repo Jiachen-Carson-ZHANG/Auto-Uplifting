@@ -54,6 +54,7 @@ def test_autonomous_pipeline_demo_runs_with_stub_llm(tmp_path):
     assert "[features] purchase chunk" in log_text
     assert "FINAL SUMMARY TABLE" in log_text
     assert "val_norm_qini" in log_text
+    assert "holdout_norm_qini" not in log_text
     assert "SUMMARY_JSON=" in log_text
 
 
@@ -72,7 +73,7 @@ def test_autonomous_pipeline_champion_selection_excludes_manual_benchmark():
     assert _successful_agent_champion([manual, agent]) is agent
 
 
-def test_autonomous_pipeline_champion_selection_penalizes_heldout_drop(tmp_path):
+def test_autonomous_pipeline_champion_selection_uses_validation_only(tmp_path):
     def write_scores(name: str, uplift: list[float]) -> str:
         path = tmp_path / name
         pd.DataFrame(
@@ -86,29 +87,29 @@ def test_autonomous_pipeline_champion_selection_penalizes_heldout_drop(tmp_path)
         return str(path)
 
     good = [0.9, 0.8, 0.3, 0.2, -0.1, -0.2, 0.7, -0.3]
-    unstable = SimpleNamespace(
+    validation_best = SimpleNamespace(
         status="success",
-        hypothesis_id="UT-validation-spike",
-        qini_auc=300.0,
+        hypothesis_id="UT-validation-best",
+        qini_auc=400.0,
         artifact_paths={
-            "uplift_scores": write_scores("unstable_val.csv", good),
+            "uplift_scores": write_scores("validation_best_val.csv", good),
             "held_out_predictions": write_scores(
-                "unstable_held.csv",
+                "validation_best_held.csv",
                 [-value for value in good],
             ),
         },
     )
-    stable = SimpleNamespace(
+    held_out_best = SimpleNamespace(
         status="success",
-        hypothesis_id="UT-stable",
+        hypothesis_id="UT-held-out-best",
         qini_auc=300.0,
         artifact_paths={
-            "uplift_scores": write_scores("stable_val.csv", good),
-            "held_out_predictions": write_scores("stable_held.csv", good),
+            "uplift_scores": write_scores("held_out_best_val.csv", [-value for value in good]),
+            "held_out_predictions": write_scores("held_out_best_held.csv", good),
         },
     )
 
-    assert _successful_agent_champion([unstable, stable]) is stable
+    assert _successful_agent_champion([validation_best, held_out_best]) is validation_best
 
 
 def test_autonomous_pipeline_requires_champion_model_artifact(tmp_path):

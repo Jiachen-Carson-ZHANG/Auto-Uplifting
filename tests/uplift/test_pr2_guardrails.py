@@ -428,7 +428,7 @@ def test_evaluation_phase_excludes_current_trial_from_prior_champion(tmp_path):
     assert judge_payloads[0]["prior_champion"]["qini_auc"] == 0.4
 
 
-def test_evaluation_phase_uses_held_out_scores_for_judge_surface(tmp_path):
+def test_evaluation_phase_hides_held_out_scores_from_judge_by_default(tmp_path):
     ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
     judge_payloads = []
 
@@ -465,11 +465,54 @@ def test_evaluation_phase_uses_held_out_scores_for_judge_surface(tmp_path):
         features_df=pd.DataFrame(),
     )
 
-    assert judge_payloads[0]["computed_metrics"]["evaluation_surface"] == "held_out"
+    assert judge_payloads[0]["computed_metrics"]["evaluation_surface"] == "validation"
     assert judge_payloads[0]["validation_metrics"]["evaluation_surface"] == "validation"
+    assert judge_payloads[0]["held_out_metrics"] is None
+    assert result["judge"]["computed_metrics"]["evaluation_surface"] == "validation"
+    assert result["policy"]["trial_id"] == "UT-held"
+
+
+def test_evaluation_phase_can_use_held_out_scores_for_explicit_final_audit(tmp_path):
+    ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
+    judge_payloads = []
+
+    def llm(system: str, user: str) -> str:
+        if "Evaluation Judge" in system:
+            judge_payloads.append(json.loads(user))
+            return json.dumps({"verdict": "supported", "key_evidence": []})
+        return "{}"
+
+    validation_scores = pd.DataFrame(
+        {
+            "client_id": [f"v{i}" for i in range(8)],
+            "uplift": [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+            "treatment_flg": [1, 0, 1, 0, 1, 0, 1, 0],
+            "target": [1, 0, 1, 0, 0, 1, 0, 1],
+        }
+    )
+    held_out_scores = pd.DataFrame(
+        {
+            "client_id": [f"h{i}" for i in range(8)],
+            "uplift": [0.1, 0.2, 0.7, 0.8, 0.3, 0.4, 0.5, 0.6],
+            "treatment_flg": [1, 0, 1, 0, 1, 0, 1, 0],
+            "target": [0, 1, 1, 0, 0, 1, 1, 0],
+        }
+    )
+
+    result = run_evaluation_phase(
+        trial_meta={"spec_id": "UT-held", "learner_family": "two_model"},
+        scores_df=validation_scores,
+        held_out_scores_df=held_out_scores,
+        ledger=ledger,
+        llm=llm,
+        model_dir=None,
+        features_df=pd.DataFrame(),
+        allow_held_out_metrics=True,
+    )
+
+    assert judge_payloads[0]["computed_metrics"]["evaluation_surface"] == "held_out"
     assert judge_payloads[0]["held_out_metrics"]["evaluation_surface"] == "held_out"
     assert result["judge"]["computed_metrics"]["evaluation_surface"] == "held_out"
-    assert result["policy"]["trial_id"] == "UT-held"
 
 
 def test_skills_directory_loads_without_silent_fallback():

@@ -17,7 +17,7 @@
 | File | What it contains |
 |---|---|
 | `pipeline.log` | Full stage-by-stage run trace including `[plan]` (o3 hypothesis) and `[eval]` (o4-mini verdict) lines for every trial |
-| `uplift_ledger.jsonl` | Append-only trial records: metrics, verdict, judge_narrative, xai_summary, policy_narrative, strategy_rationale |
+| `uplift_ledger.jsonl` | Quarantined exploratory trial records from the earlier adaptive loop; useful for reasoning traceability, not final model selection |
 | `final_report.md` | Auto-generated report: champion, benchmark, all trials table, policy recommendation, XAI explanation |
 | `explainability/EXPLAINABILITY_REPORT.md` | Visual explanation pack: human-vs-AutoLift metric comparison, curves, deciles, prediction-level XAI, representative cases, and agent reasoning timeline |
 | `explainability/autolift_cv_selected_xai_summary.json` | Prediction-level XAI summary for the strict CV-selected `RUN-f1c30175` candidate |
@@ -25,7 +25,7 @@
 | `agentic_tuning_execution_summary.json` | Quarantined 32-trial tuning run summary; selector could see held-out metrics |
 | `agentic_tuning_ledger.jsonl` | Combined ledger for the quarantined tuning specs |
 | `agentic_tuning_plan_validation_only.json` | Patched validation-only tuning plan; no held-out metrics in candidate selection |
-| `agentic_tuning_validation_only_execution_summary.json` | Patched tuning audit summary; validation-selected champion fails held-out audit |
+| `agentic_tuning_validation_only_execution_summary.json` | Validation-only tuning audit summary; retained as pre-CV audit input, not final proof |
 | `agentic_tuning_validation_only_ledger.jsonl` | Combined ledger for the patched validation-only tuning specs |
 | `validation_top3_cv_audit.md` | Leakage-clean top-3 CV audit; internal test partition excluded from CV |
 | `validation_top3_cv_leaderboard.csv` | CV leaderboard for the top 3 validation-selected candidates |
@@ -45,6 +45,20 @@
 | class_transformation | xgboost | hybrid_safe_semantic_v1 | 0.313 | −0.049 | supported |
 | two_model | lightgbm | hybrid_safe_semantic_v1 | 0.208 | −0.199 | inconclusive |
 | **class_transformation** | **lightgbm** | **hybrid_safe_semantic_v1** | **0.337** | **−0.005** | **supported** |
+
+## Holdout Leakage Remediation
+
+The earlier autonomous loop exposed held-out/test feedback during adaptive
+iteration through the judge, ledger summaries, and champion helpers. That is
+adaptive test-set leakage. Those artifacts remain in this folder for audit
+transparency, but they are quarantined and must not be used as final champion
+selection evidence.
+
+The fixed code path now makes held-out scoring opt-in, hides held-out fields from
+planning prompts and tuning summaries, runs judge/policy feedback on validation
+only by default, and selects live champions from validation evidence only. The
+final reportable result remains the validation-top-3 plus 5-fold CV selection of
+`RUN-f1c30175`, followed by a sealed test audit.
 
 ## Key Finding
 

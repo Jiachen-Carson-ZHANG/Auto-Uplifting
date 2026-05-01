@@ -116,9 +116,7 @@ class TuningCandidate:
     split_seed: int
     score: float
     qini_auc: float | None
-    held_out_qini_auc: float | None
     uplift_auc: float | None
-    held_out_uplift_auc: float | None
     existing_params_hash: str
 
 
@@ -355,9 +353,7 @@ def select_top_tuning_candidates(
                 split_seed=record.split_seed,
                 score=score,
                 qini_auc=record.qini_auc,
-                held_out_qini_auc=record.held_out_qini_auc,
                 uplift_auc=record.uplift_auc,
-                held_out_uplift_auc=record.held_out_uplift_auc,
                 existing_params_hash=record.params_hash,
             )
         )
@@ -501,7 +497,6 @@ def tuning_summary(records: Iterable[UpliftExperimentRecord]) -> list[dict[str, 
     rows: list[dict[str, object]] = []
     for record in records:
         val = _normalized_qini_from_record(record, "uplift_scores")
-        held = _normalized_qini_from_record(record, "held_out_predictions")
         rows.append(
             {
                 "run_id": record.run_id,
@@ -512,7 +507,6 @@ def tuning_summary(records: Iterable[UpliftExperimentRecord]) -> list[dict[str, 
                 "split_seed": record.split_seed,
                 "params_hash": record.params_hash,
                 "val_normalized_qini": val,
-                "held_out_normalized_qini": held,
                 "selection_score": _validation_record_score(record),
                 "selection_score_source": "validation_only",
                 "error": record.error,

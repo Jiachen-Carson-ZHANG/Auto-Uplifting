@@ -184,11 +184,14 @@ class UpliftEvaluationJudge:
         prior_champion: UpliftExperimentRecord | None = None,
         stability_score: float = 1.0,
         held_out_scores_df: pd.DataFrame | None = None,
+        allow_held_out_metrics: bool = False,
     ) -> dict:
         validation_metrics = _score_metrics(scores_df, surface="validation")
         held_out_metrics = (
             _score_metrics(held_out_scores_df, surface="held_out")
-            if held_out_scores_df is not None and not held_out_scores_df.empty
+            if allow_held_out_metrics
+            and held_out_scores_df is not None
+            and not held_out_scores_df.empty
             else None
         )
         metrics = held_out_metrics or validation_metrics
@@ -196,9 +199,7 @@ class UpliftEvaluationJudge:
         champion_block = (
             {
                 "qini_auc": prior_champion.qini_auc,
-                "held_out_qini_auc": prior_champion.held_out_qini_auc,
                 "uplift_auc": prior_champion.uplift_auc,
-                "held_out_uplift_auc": prior_champion.held_out_uplift_auc,
                 "verdict": prior_champion.verdict,
             }
             if prior_champion is not None
@@ -429,6 +430,7 @@ def run_evaluation_phase(
     budget: float | None = None,
     trial_status: str = "success",
     held_out_scores_df: pd.DataFrame | None = None,
+    allow_held_out_metrics: bool = False,
 ) -> dict:
     """Run PR2 Judge, XAI, and Policy agents for one completed trial.
 
@@ -444,15 +446,11 @@ def run_evaluation_phase(
             record
             for record in records
             if record.status == "success"
-            and (record.held_out_qini_auc is not None or record.qini_auc is not None)
+            and record.qini_auc is not None
             and record.hypothesis_id != current_trial_id
             and record.run_id != current_trial_id
         ),
-        key=lambda record: (
-            record.held_out_qini_auc
-            if record.held_out_qini_auc is not None
-            else record.qini_auc
-        ),
+        key=lambda record: record.qini_auc if record.qini_auc is not None else float("-inf"),
         default=None,
     )
     judge = UpliftEvaluationJudge(llm)
@@ -461,13 +459,17 @@ def run_evaluation_phase(
 
     judgment_scores = (
         held_out_scores_df
-        if held_out_scores_df is not None and not held_out_scores_df.empty
+        if allow_held_out_metrics
+        and held_out_scores_df is not None
+        and not held_out_scores_df.empty
         else scores_df
     )
     trial_meta = {
         **trial_meta,
         "evaluation_surface": "held_out"
-        if held_out_scores_df is not None and not held_out_scores_df.empty
+        if allow_held_out_metrics
+        and held_out_scores_df is not None
+        and not held_out_scores_df.empty
         else "validation",
     }
     judge_result = judge.run(
@@ -475,6 +477,7 @@ def run_evaluation_phase(
         scores_df,
         champion,
         held_out_scores_df=held_out_scores_df,
+        allow_held_out_metrics=allow_held_out_metrics,
     )
     xai_result = xai.run(
         trial_meta,

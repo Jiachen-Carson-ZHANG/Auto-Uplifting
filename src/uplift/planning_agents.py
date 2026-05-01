@@ -474,9 +474,10 @@ class UpliftStrategySelectionAgent:
                     "available_feature_recipes": approved_recipes,
                     "selection_policy": (
                         "After the minimal warmup, choose the next uplift "
-                        "learner from ledger evidence. Prefer held-out stability "
-                        "over validation-only gains. Do not choose a pair from "
-                        "used_model_pairs while unused_model_pairs is non-empty."
+                        "learner from validation ledger evidence only. Final "
+                        "generalization audit is outside the adaptive planning "
+                        "loop. Do not choose a pair from used_model_pairs while "
+                        "unused_model_pairs is non-empty."
                     ),
                 },
                 sort_keys=True,
@@ -650,7 +651,6 @@ def _record_summary(record: UpliftExperimentRecord | None) -> dict[str, Any] | N
         "base_estimator": record.base_estimator,
         "feature_recipe_id": record.feature_recipe_id,
         "qini_auc": record.qini_auc,
-        "held_out_qini_auc": record.held_out_qini_auc,
         "uplift_auc": record.uplift_auc,
         "status": record.status,
         "verdict": record.verdict,

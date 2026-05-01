@@ -108,8 +108,14 @@ def run_uplift_trials(
     feature_artifact: UpliftFeatureArtifact,
     trial_specs: List[UpliftTrialSpec],
     output_dir: str | Path,
+    score_held_out: bool = False,
 ) -> UpliftLoopResult:
-    """Execute trial specs, write artifacts, and append ledger records."""
+    """Execute trial specs, write artifacts, and append ledger records.
+
+    Held-out/test scoring is opt-in because normal trial loops are adaptive.
+    Validation artifacts drive planning and selection; held-out artifacts should be
+    generated only by explicit final-audit paths after candidate selection.
+    """
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     ledger = UpliftLedger(output / "uplift_ledger.jsonl")
@@ -129,14 +135,10 @@ def run_uplift_trials(
             split = split_labeled_uplift_frame(labeled, trial_contract)
             split_diagnostics = diagnose_uplift_split(split, trial_contract)
 
-            # Validation drives champion selection. The test partition (when present)
-            # is held out for an honest generalization estimate scored from the same
-            # fitted model. When no test partition is configured, validation is the
-            # only evaluation surface.
             if not split.validation.empty:
                 eval_df = split.validation
                 held_out_df: pd.DataFrame | None = (
-                    split.test if not split.test.empty else None
+                    split.test if score_held_out and not split.test.empty else None
                 )
             else:
                 eval_df = split.test

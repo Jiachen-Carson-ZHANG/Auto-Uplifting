@@ -758,7 +758,7 @@ The first decile is the top predicted-uplift group and should show the clearest 
 
 {timeline_table}
 
-This is the agent-specific contribution: each trial carries a hypothesis, feature rationale, expected signal, held-out metrics, judge verdict, XAI summary, and policy recommendation.
+This timeline is a quarantined process trace from the earlier adaptive loop. It is useful for explaining how the agent reasoned, but not for final model selection because those iterations could see held-out feedback. The final reportable selection is the validation-top-3 plus CV candidate above.
 
 ## Source Notes
 

@@ -166,7 +166,7 @@ def _contract_with_test_split() -> UpliftProjectContract:
     )
 
 
-def test_run_uplift_trials_emits_held_out_metrics_when_test_partition_present(tmp_path):
+def test_run_uplift_trials_hides_held_out_metrics_by_default(tmp_path):
     contract = _contract_with_test_split()
     feature_artifact = _feature_artifact(tmp_path)
     trials = [
@@ -188,8 +188,33 @@ def test_run_uplift_trials_emits_held_out_metrics_when_test_partition_present(tm
     record = result.records[0]
     assert record.status == "success"
     assert record.qini_auc is not None
-    # Held-out metrics come from the test partition; the values themselves can be
-    # anything on a tiny fixture, but the held-out artifact paths must exist.
+    assert record.held_out_qini_auc is None
+    assert record.held_out_uplift_at_k == {}
+    assert "held_out_predictions" not in record.artifact_paths
+
+
+def test_run_uplift_trials_emits_held_out_metrics_only_when_explicitly_requested(tmp_path):
+    contract = _contract_with_test_split()
+    feature_artifact = _feature_artifact(tmp_path)
+    trials = [
+        UpliftTrialSpec(
+            hypothesis_id="baseline-response",
+            template_name="response_model_sklearn",
+            learner_family="response_model",
+            feature_recipe_id=feature_artifact.feature_recipe_id,
+        ),
+    ]
+
+    result = run_uplift_trials(
+        contract,
+        feature_artifact=feature_artifact,
+        trial_specs=trials,
+        output_dir=tmp_path / "runs",
+        score_held_out=True,
+    )
+
+    record = result.records[0]
+    assert record.status == "success"
     assert "held_out_predictions" in record.artifact_paths
     assert "held_out_decile_table" in record.artifact_paths
     assert Path(record.artifact_paths["held_out_predictions"]).exists()

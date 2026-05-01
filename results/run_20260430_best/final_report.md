@@ -8,6 +8,19 @@ Use `RUN-f1c30175` as the leakage-clean validation+CV selected AutoLift candidat
 
 Important boundary: `RUN-c5e6e86f` remains the best retrospective held-out main-run row, but it must not be described as the leakage-clean selected champion because the earlier champion logic considered held-out performance. The final comparison below uses the corrected human CV-selected champion, not the earlier retrospective human held-out-best row.
 
+## Holdout Leakage Remediation
+
+Audit finding: the original adaptive trial loop exposed held-out/test feedback
+to iteration through the judge, ledger summaries, and live champion helpers. That
+is adaptive test-set leakage, so those main-loop artifacts are quarantined as
+exploratory process evidence.
+
+Code remediation now enforces this boundary: held-out scoring is opt-in, planning
+summaries hide held-out fields, judge/policy feedback defaults to validation
+only, tuning summaries omit held-out metrics, and live champion selection uses
+validation evidence only. Held-out metrics are valid only after the validation/CV
+candidate is fixed.
+
 ## Leakage-Clean Validation+CV Selection
 
 - Run ID: RUN-f1c30175
@@ -179,9 +192,9 @@ No repeated-seed stability groups are available yet.
 
 ## Feature Semantics
 
-| Feature Recipe ID | Temporal Policy | Best Held-out Normalized Qini | Intended Signal | XAI Check |
+| Feature Recipe ID | Temporal Policy | Best Validation Normalized Qini | Intended Signal | XAI Check |
 |---|---|---:|---|---|
-| 0b2e3552e7bd | safe_history_until_reference | 0.337369 | Held-out Qini should stay at or above 326 and uplift-AUC ≥0.060; XAI top drivers should be recency, frequency, points... | age_dominance_warning=True; behavioral_top5_present=True |
+| 0b2e3552e7bd | safe_history_until_reference | 0.344842 | Validation Qini should stay competitive and uplift-AUC ≥0.060; XAI top drivers should include recency, frequency, points... | age_dominance_warning=True; behavioral_top5_present=True |
 | 4f0cb0168773 | post_issue_history | 0.186826 | Higher uplift-AUC and a Qini curve showing separation driven by behavioural recency, points burn-rate and basket dept... | age_dominance_warning=True; behavioral_top5_present=True |
 
 ## Policy Recommendation

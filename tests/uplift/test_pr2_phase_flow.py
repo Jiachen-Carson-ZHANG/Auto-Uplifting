@@ -272,6 +272,62 @@ def test_autonomous_strategy_skips_warmup_and_uses_llm_from_first_trial(tmp_path
     assert first.base_estimator == "xgboost"
 
 
+def test_planning_prompt_hides_held_out_metrics_from_strategy_llm(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "src.uplift.planning_agents._is_estimator_available",
+        lambda estimator: estimator != "catboost",
+    )
+    ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
+    ledger.append_result(
+        trial_spec=UpliftTrialSpec(
+            spec_id="UT-prior",
+            hypothesis_id="UT-prior",
+            template_name="two_model_xgboost",
+            learner_family="two_model",
+            base_estimator="xgboost",
+            feature_recipe_id="recipe123456",
+        ),
+        feature_artifact_id="artifact123",
+        result_status="success",
+        qini_auc=0.41,
+        uplift_auc=0.06,
+        held_out_qini_auc=999.0,
+        held_out_uplift_auc=0.99,
+        artifact_paths={"held_out_predictions": "/tmp/forbidden.csv"},
+    )
+    captured = {}
+
+    def choose_next(system: str, user: str) -> str:
+        captured["user"] = user
+        return (
+            '{"learner_family":"two_model","base_estimator":"lightgbm",'
+            '"feature_recipe":"rfm_baseline","split_seed":42,'
+            '"eval_cutoff":0.3,"rationale":"Use validation evidence only."}'
+        )
+
+    agent = UpliftStrategySelectionAgent(ledger, choose_next)
+    agent.run(
+        HypothesisDecision(
+            action="propose",
+            hypothesis="Try another learner.",
+            evidence="Validation Qini improved.",
+            confidence=0.7,
+        ),
+        RetrievedContext(
+            similar_recipes=[],
+            supported_hypotheses=[],
+            refuted_hypotheses=[],
+            best_learner_family="two_model",
+            failed_runs=[],
+            summary="Prior validation evidence exists.",
+        ),
+    )
+
+    assert "held_out" not in captured["user"]
+    assert "999.0" not in captured["user"]
+    assert "forbidden.csv" not in captured["user"]
+
+
 def test_autonomous_strategy_replaces_duplicate_agent_choice_with_unused_pair(
     tmp_path,
     monkeypatch,

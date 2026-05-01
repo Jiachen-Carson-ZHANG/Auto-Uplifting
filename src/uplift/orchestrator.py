@@ -398,11 +398,6 @@ class AutoLiftOrchestrator:
             trial_records.append(record)
             if record.status == "success":
                 scores = pd.read_csv(record.artifact_paths["uplift_scores"])
-                held_out_scores = (
-                    pd.read_csv(record.artifact_paths["held_out_predictions"])
-                    if "held_out_predictions" in record.artifact_paths
-                    else None
-                )
                 features = pd.read_csv(feature_artifact.artifact_path)
                 eval_result = run_evaluation_phase(
                     trial_meta={
@@ -424,7 +419,6 @@ class AutoLiftOrchestrator:
                     else None,
                     features_df=features,
                     trial_status=record.status,
-                    held_out_scores_df=held_out_scores,
                 )
                 evaluation_results.append(eval_result)
                 # Write agent reasoning back into the ledger record
@@ -825,12 +819,12 @@ def _feature_semantics_lines(records: list[UpliftExperimentRecord]) -> list[str]
         by_recipe.setdefault(record.feature_recipe_id, []).append(record)
 
     lines = [
-        "| Feature Recipe ID | Temporal Policy | Best Held-out Normalized Qini | Intended Signal | XAI Check |",
+        "| Feature Recipe ID | Temporal Policy | Best Validation Normalized Qini | Intended Signal | XAI Check |",
         "|---|---|---:|---|---|",
     ]
     for recipe_id, recipe_records in sorted(by_recipe.items()):
         best = max(recipe_records, key=_report_champion_metric)
-        held = _normalized_qini_from_record(best, held_out=True)
+        validation = _normalized_qini_from_record(best)
         intended = best.feature_expected_signal or "Not captured."
         xai_check = best.xai_sanity_summary or best.xai_summary or "Not captured."
         temporal = best.temporal_policy or "not captured"
@@ -838,7 +832,7 @@ def _feature_semantics_lines(records: list[UpliftExperimentRecord]) -> list[str]
             "| "
             f"{recipe_id} | "
             f"{temporal} | "
-            f"{_format_metric(held)} | "
+            f"{_format_metric(validation)} | "
             f"{_truncate_cell(intended)} | "
             f"{_truncate_cell(xai_check)} |"
         )
@@ -854,13 +848,8 @@ def _truncate_cell(value: str, limit: int = 120) -> str:
 
 def _report_champion_metric(record: UpliftExperimentRecord) -> float:
     normalized = _normalized_qini_from_record(record)
-    held_out_normalized = _normalized_qini_from_record(record, held_out=True)
-    if normalized is not None and held_out_normalized is not None:
-        return min(normalized, held_out_normalized)
     if normalized is not None:
         return normalized
-    if held_out_normalized is not None:
-        return held_out_normalized
     return record.qini_auc if record.qini_auc is not None else float("-inf")
 
 
@@ -1004,18 +993,6 @@ def _decision_line(
         return "No agent champion is available yet."
     if benchmark is None:
         return f"Use the current agent champion {champion.run_id} as the best available tested answer."
-    champion_held_out = _normalized_qini_from_record(champion, held_out=True)
-    benchmark_held_out = _normalized_qini_from_record(benchmark, held_out=True)
-    if (
-        champion_held_out is not None
-        and benchmark_held_out is not None
-        and benchmark_held_out > champion_held_out
-    ):
-        return (
-            f"Use agent champion {champion.run_id} as the best autonomous candidate, "
-            "but keep the fixed reference as the held-out safety reference "
-            f"({benchmark_held_out:.4f} vs {champion_held_out:.4f} normalized Qini)."
-        )
     champion_qini = _report_champion_metric(champion)
     benchmark_qini = _report_champion_metric(benchmark)
     if champion_qini == float("-inf") or benchmark_qini == float("-inf"):
@@ -1027,11 +1004,11 @@ def _decision_line(
     if delta >= 0:
         return (
             f"Use agent champion {champion.run_id}; it beats the manual benchmark "
-            f"by {delta:.4f} stability-adjusted normalized Qini AUC."
+            f"by {delta:.4f} validation normalized Qini AUC."
         )
     return (
         f"Keep manual benchmark as the current safety reference; agent champion "
-        f"{champion.run_id} trails by {abs(delta):.4f} stability-adjusted normalized Qini AUC."
+        f"{champion.run_id} trails by {abs(delta):.4f} validation normalized Qini AUC."
     )
 
 

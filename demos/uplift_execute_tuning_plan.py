@@ -121,7 +121,6 @@ def main() -> int:
         "champion_hypothesis_id": result.champion_hypothesis_id,
         "champion_template_name": result.champion_template_name,
         "champion_qini_auc": result.champion_qini_auc,
-        "champion_held_out_qini_auc": result.champion_held_out_qini_auc,
         "group_outputs": result.group_outputs,
     }
     print("SUMMARY_JSON=" + json.dumps(summary, sort_keys=True))

@@ -229,20 +229,21 @@ def test_reporting_agent_includes_all_trials_and_heldout_caution(tmp_path):
     assert "## All Trials" in report
     assert "| Run | Role | Learner | Estimator | Val Normalized Qini | Val Uplift AUC | Held-out Normalized Qini | Held-out Uplift AUC |" in report
     assert "Manual benchmark has stronger held-out normalized Qini" in report
-    assert "held-out safety reference" in report
+    assert "validation normalized Qini AUC" in report
+    assert "held-out safety reference" not in report
     assert "296.000000" not in report
     assert "309.000000" not in report
 
 
-def test_reporting_agent_prefers_stable_agent_over_validation_only_spike(tmp_path):
+def test_reporting_agent_selects_agent_champion_by_validation_only(tmp_path):
     contract = _contract()
     ledger = UpliftLedger(tmp_path / "uplift_ledger.jsonl")
     good_scores = [0.9, 0.8, 0.3, 0.2, -0.1, -0.2, 0.7, -0.3]
     reversed_scores = [-value for value in good_scores]
 
-    for spec_id, held_scores in [
-        ("UT-validation-spike", reversed_scores),
-        ("UT-stable", good_scores),
+    for spec_id, val_scores, held_scores, qini_auc in [
+        ("UT-validation-best", good_scores, reversed_scores, 400.0),
+        ("UT-held-out-best", reversed_scores, good_scores, 300.0),
     ]:
         spec = UpliftTrialSpec(
             spec_id=spec_id,
@@ -256,14 +257,14 @@ def test_reporting_agent_prefers_stable_agent_over_validation_only_spike(tmp_pat
             trial_spec=spec,
             feature_artifact_id="artifact123",
             result_status="success",
-            qini_auc=300.0,
+            qini_auc=qini_auc,
             uplift_auc=0.04,
             held_out_qini_auc=300.0,
             held_out_uplift_auc=0.04,
             artifact_paths={
                 "uplift_scores": _write_scores(
                     tmp_path / spec_id / "uplift_scores.csv",
-                    good_scores,
+                    val_scores,
                 ),
                 "held_out_predictions": _write_scores(
                     tmp_path / spec_id / "held_out_predictions.csv",
@@ -274,7 +275,7 @@ def test_reporting_agent_prefers_stable_agent_over_validation_only_spike(tmp_pat
 
     reporter = ReportingAgent(contract, ledger, output_path=tmp_path / "final_report.md")
 
-    assert reporter.agent_champion().hypothesis_id == "UT-stable"
+    assert reporter.agent_champion().hypothesis_id == "UT-validation-best"
 
 
 def test_reporting_agent_summarizes_repeated_seed_stability_groups(tmp_path):

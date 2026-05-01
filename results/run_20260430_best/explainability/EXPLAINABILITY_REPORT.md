@@ -89,7 +89,7 @@ The first decile is the top predicted-uplift group and should show the clearest 
 | 5 | RUN-dd10fc91 | two_model | lightgbm | 300.1975 | inconclusive | The new model's held-out Qini AUC dropped from 325.98 to 300.20 and uplift-AUC fell from 0.0589 to 0.0563 versus the prior champion, missing the ta... |
 | 6 | RUN-c5e6e86f | class_transformation | lightgbm | 331.7694 | supported | The LightGBM model improved held-out Qini AUC from 325.98 to 331.77 (up 5.79) and uplift-AUC from 0.05888 to 0.06149 (up 0.00261), both exceeding t... |
 
-This is the agent-specific contribution: each trial carries a hypothesis, feature rationale, expected signal, held-out metrics, judge verdict, XAI summary, and policy recommendation.
+This timeline is a quarantined process trace from the earlier adaptive loop. It is useful for explaining how the agent reasoned, but not for final model selection because those iterations could see held-out feedback. The final reportable selection is the validation-top-3 plus CV candidate above.
 
 ## Source Notes
 
