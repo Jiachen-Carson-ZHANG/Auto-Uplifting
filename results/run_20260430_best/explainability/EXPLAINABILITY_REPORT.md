@@ -2,26 +2,28 @@
 
 This pack adapts the visual explanation structure from `human_baseline_uplift.ipynb` for the AutoLift run. It adds model-performance visuals, targeting diagnostics, feature-level explanation, and an agent decision timeline.
 
-## Human vs AutoLift Pending Re-Audit
+## Final Honest Human vs AutoLift
 
-The human-baseline workflow is being corrected separately. The table and SVG
-below preserve the previously observed notebook numbers for traceability only;
-do not use them as final win/loss claims.
+Both sides are selected without using the sealed test set. The human notebook
+selects `solo_model_xgb` by 5-fold CV after validation screening. AutoLift
+selects `RUN-f1c30175` / `two_model_lightgbm` by validation-top-3 CV.
 
-| Metric | AutoLift Retrospective Reference | Provisional Human Notebook Row | Provisional Delta |
+| Metric | AutoLift CV-selected | Human CV-selected | AutoLift - Human |
 | --- | --- | --- | --- |
-| Held-out raw Qini AUC | 331.7694 | 328.3899 | +3.3795 |
-| Held-out uplift AUC | 0.06149 | 0.0631 | -0.00161 |
-| Held-out uplift@5% | 0.139969 | 0.1637 | -0.023731 |
-| Held-out uplift@10% | 0.099709 | 0.1289 | -0.029191 |
-| Held-out uplift@20% | 0.071709 | 0.0764 | -0.004691 |
-| Held-out uplift@30% | 0.062456 | 0.0627 | -0.000244 |
+| CV mean normalized Qini | 0.396226 | 0.409490 | -0.013264 |
+| CV std normalized Qini | 0.060313 | 0.087550 | -0.027237 |
+| Test normalized Qini | 0.248455 | 0.204120 | +0.044335 |
+| Test raw Qini AUC | 309.987113 | 299.125590 | +10.861523 |
+| Test uplift AUC | 0.058746 | 0.057820 | +0.000926 |
+| Test uplift@5% | 0.183569 | 0.155200 | +0.028369 |
+| Test uplift@10% | 0.111772 | 0.092310 | +0.019462 |
+| Test uplift@30% | 0.058085 | 0.051870 | +0.006215 |
 
 ![Held-out top-k comparison](human_vs_autolift_topk.svg)
 
-The comparison graphic is provisional until the corrected human-baseline run is
-available. The stable claim is about AutoLift's auditable workflow and reasoning
-trail, not a finalized metric win over the human baseline.
+The table above is the final honest comparison. The SVG is retained from the
+earlier retrospective visual pack and should be treated as a supporting visual,
+not as the source of truth for the final CV-selected comparison.
 
 ## AutoLift Curves
 
@@ -30,8 +32,8 @@ trail, not a finalized metric win over the human baseline.
 ![Held-out uplift curve](autolift_heldout_uplift_curve.svg)
 
 The notebook did not leave prediction-level human artifacts in this workspace, so
-the provisional human comparison is shown through notebook-reported metrics
-instead of an overlaid human curve.
+the human comparison is shown through notebook-reported metrics instead of an
+overlaid human curve.
 
 ## Decile Lift
 
@@ -75,6 +77,7 @@ This is the agent-specific contribution: each trial carries a hypothesis, featur
 
 ## Source Notes
 
-- AutoLift artifacts: `results/run_20260430_best/uplift_ledger.jsonl` and saved champion CSVs under `artifacts/uplift/run_20260430_221602/runs/UT-9fb6c6/`.
-- Human metrics: `human_baseline_uplift.ipynb` outputs. The best held-out row is `class_transform_gbm` / `tuned_class_transform_gbm`; the validation-selected champion is `tuned_solo_model_xgb`.
+- Final AutoLift comparison metrics: `results/run_20260430_best/validation_top3_cv_leaderboard.csv`, `results/run_20260430_best/validation_top3_cv_audit.md`, and `artifacts/uplift/cv_top3_validation_only_20260501_123000/rank_03_RUN-f1c30175/cv_summary.json`.
+- Visual-pack assets: `results/run_20260430_best/uplift_ledger.jsonl` and retrospective reference CSVs under `artifacts/uplift/run_20260430_221602/runs/UT-9fb6c6/`. These support explanation, not final selection.
+- Human metrics: `human_baseline_uplift.ipynb` outputs. The corrected CV-selected champion is `solo_model_xgb`.
 - Metric caution: AutoLift report-table Qini values are normalized, while the human notebook reports raw Qini. This pack compares raw Qini only where both sides expose raw Qini.

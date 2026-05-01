@@ -1,0 +1,14 @@
+metric,autolift,human,delta_autolift_minus_human
+cv_normalized_qini_auc,0.396226,0.40949,-0.013264
+cv_normalized_qini_auc_std,0.060313,0.08755,-0.027237
+cv_raw_qini_auc,392.456261,396.14646,-3.690199
+cv_uplift_auc,0.066282,0.06532,0.000962
+cv_uplift_at_5pct,0.143441,0.1336,0.009841
+cv_uplift_at_10pct,0.115764,0.11032,0.005444
+cv_uplift_at_30pct,0.064839,0.07041,-0.005571
+test_normalized_qini_auc,0.248455,0.20412,0.044335
+test_raw_qini_auc,309.987113,299.12559,10.861523
+test_uplift_auc,0.058746,0.05782,0.000926
+test_uplift_at_5pct,0.183569,0.1552,0.028369
+test_uplift_at_10pct,0.111772,0.09231,0.019462
+test_uplift_at_30pct,0.058085,0.05187,0.006215

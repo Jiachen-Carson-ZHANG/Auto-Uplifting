@@ -6,7 +6,7 @@ Task: retailhero-uplift
 
 Use `RUN-f1c30175` as the leakage-clean validation+CV selected AutoLift candidate. Selection was made without internal test/held-out metrics: first rank by validation predictions, then rerank the top 3 with 5-fold CV over the original train+validation pool only. The internal test partition stayed sealed until the final audit.
 
-Important boundary: `RUN-c5e6e86f` remains the best retrospective held-out main-run row, but it must not be described as the leakage-clean selected champion because the earlier champion logic considered held-out performance. The human-baseline comparison is pending re-audit because the human notebook workflow is being corrected separately; do not use current human deltas as final claims.
+Important boundary: `RUN-c5e6e86f` remains the best retrospective held-out main-run row, but it must not be described as the leakage-clean selected champion because the earlier champion logic considered held-out performance. The final comparison below uses the corrected human CV-selected champion, not the earlier retrospective human held-out-best row.
 
 ## Leakage-Clean Validation+CV Selection
 
@@ -52,30 +52,28 @@ This row is useful for diagnosis and comparison, but not for leakage-clean champ
 
 Source: `human_baseline_uplift.ipynb`
 
-Status: pending re-audit. The values below are retained only as the previously
-observed notebook outputs and must not be treated as final comparison numbers
-until the corrected human-baseline workflow is pushed and rerun.
+Corrected human selection policy: screen all models on the original validation
+split, rerank the top 3 non-random candidates with 5-fold CV over
+train+validation, select by CV mean normalized Qini, then open the sealed test
+set.
 
-Previously observed best held-out human notebook row: `class_transform_gbm` / `tuned_class_transform_gbm`
+Final honest human champion: `solo_model_xgb`
 
-- Held-out Qini AUC: 328.3899
-- Held-out Uplift AUC: 0.0631
-- Held-out Uplift@5%: 0.1637
-- Held-out Uplift@10%: 0.1289
-- Held-out Uplift@20%: 0.0764
-- Held-out Uplift@30%: 0.0627
+- CV mean Normalized Qini AUC: 0.40949
+- CV std Normalized Qini AUC: 0.08755
+- CV raw Qini AUC: 396.14646
+- CV Uplift AUC: 0.06532
+- CV Uplift@5%: 0.13360
+- CV Uplift@10%: 0.11032
+- CV Uplift@30%: 0.07041
+- Sealed held-out Normalized Qini AUC: 0.20412
+- Sealed held-out raw Qini AUC: 299.12559
+- Sealed held-out Uplift AUC: 0.05782
+- Sealed held-out Uplift@5%: 0.15520
+- Sealed held-out Uplift@10%: 0.09231
+- Sealed held-out Uplift@30%: 0.05187
 
-Previously observed notebook-selected validation champion: `tuned_solo_model_xgb`
-
-- Validation Qini AUC: 367.03263
-- Held-out Test Qini AUC: 299.13056
-- Held-out Test Uplift AUC: 0.05828
-- Held-out Test Uplift@10%: 0.12779
-- Held-out Test Uplift@30%: 0.05242
-
-For slide/report comparison, treat the human-baseline column as pending. The
-notebook-selected validation champion is listed for traceability, but the final
-human benchmark should come from the corrected human-baseline run.
+Comparison artifact: `honest_human_vs_autolift_cv_comparison.md`
 
 ## Internal AutoLift Reference
 
@@ -97,38 +95,39 @@ human benchmark should come from the corrected human-baseline run.
 | RUN-dd10fc91 | Agent | two_model | lightgbm | 0.407684 | 0.065052 | 0.208495 | 0.056286 |
 | RUN-c5e6e86f | Agent | class_transformation | lightgbm | 0.344842 | 0.060678 | 0.337369 | 0.061490 |
 
-## Human vs AutoLift Comparison Pending
+## Final Honest Human vs AutoLift Comparison
 
-The AutoLift side below is final for this audit. The human side is provisional
-and must be refreshed after the corrected human-baseline code is pushed.
+Both sides use CV selection before opening the sealed test set.
 
-Strict leakage-clean selection versus previously observed human numbers:
+Selection-stage comparison:
 
-| Metric | AutoLift Validation+CV Candidate | Provisional Human Notebook Row | Provisional Delta |
+| Metric | AutoLift CV-selected | Human CV-selected | AutoLift - Human |
 |---|---:|---:|---:|
-| Held-out raw Qini AUC | 309.9871 | 328.3899 | -18.4028 |
-| Held-out uplift AUC | 0.058746 | 0.0631 | -0.004354 |
-| Held-out uplift@5% | 0.183569 | 0.1637 | +0.019869 |
-| Held-out uplift@10% | 0.111772 | 0.1289 | -0.017128 |
-| Held-out uplift@20% | 0.064553 | 0.0764 | -0.011847 |
-| Held-out uplift@30% | 0.058085 | 0.0627 | -0.004615 |
+| CV mean Normalized Qini AUC | 0.396226 | 0.409490 | -0.013264 |
+| CV std Normalized Qini AUC | 0.060313 | 0.087550 | -0.027237 |
+| CV raw Qini AUC | 392.456261 | 396.146460 | -3.690199 |
+| CV Uplift AUC | 0.066282 | 0.065320 | +0.000962 |
+| CV Uplift@5% | 0.143441 | 0.133600 | +0.009841 |
+| CV Uplift@10% | 0.115764 | 0.110320 | +0.005444 |
+| CV Uplift@30% | 0.064839 | 0.070410 | -0.005571 |
 
-Retrospective held-out best reference versus previously observed human numbers:
+Sealed test comparison:
 
-| Metric | AutoLift Retrospective Best | Provisional Human Notebook Row | Provisional Delta |
+| Metric | AutoLift CV-selected | Human CV-selected | AutoLift - Human |
 |---|---:|---:|---:|
-| Held-out raw Qini AUC | 331.7694 | 328.3899 | +3.3795 |
-| Held-out uplift AUC | 0.06149 | 0.0631 | -0.00161 |
-| Held-out uplift@5% | 0.139969 | 0.1637 | -0.023731 |
-| Held-out uplift@10% | 0.099709 | 0.1289 | -0.029191 |
-| Held-out uplift@20% | 0.071709 | 0.0764 | -0.004691 |
-| Held-out uplift@30% | 0.062456 | 0.0627 | -0.000244 |
+| Test Normalized Qini AUC | 0.248455 | 0.204120 | +0.044335 |
+| Test raw Qini AUC | 309.987113 | 299.125590 | +10.861523 |
+| Test Uplift AUC | 0.058746 | 0.057820 | +0.000926 |
+| Test Uplift@5% | 0.183569 | 0.155200 | +0.028369 |
+| Test Uplift@10% | 0.111772 | 0.092310 | +0.019462 |
+| Test Uplift@30% | 0.058085 | 0.051870 | +0.006215 |
 
-Interpretation: do not claim a final win/loss against the human baseline until
-the corrected human-baseline run is available. The current defensible claim is
-about AutoLift's own process: it produced an auditable end-to-end agentic
-workflow, generated candidate families and tuning plans, detected its own
-leakage risk, and preserved reasoning and artifacts for review.
+Interpretation: the human baseline is slightly ahead on the CV selection metric,
+while AutoLift is more stable across CV folds and better on the sealed test
+metrics available here. The fair final statement is that AutoLift does not
+dominate the human workflow on CV mean normalized Qini, but its leakage-clean
+CV-selected candidate beats the honest human CV-selected champion on sealed test
+normalized Qini, raw Qini, uplift AUC, and top-k lift at 5%, 10%, and 30%.
 
 ## Agentic Tuning Audit
 

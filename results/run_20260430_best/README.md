@@ -5,7 +5,7 @@
 - Selection rule: validation predictions choose top 3; 5-fold CV reranks those candidates on the original train+validation pool only; the internal test partition is sealed until final audit.
 - CV mean normalized Qini: **0.396226**
 - Sealed held-out raw Qini: **309.99**
-- Human notebook comparison: **pending re-audit**. The existing `human_baseline_uplift.ipynb` numbers are provisional because the human baseline workflow is being corrected separately. Do not use the current human deltas as final claims.
+- Human notebook comparison: final honest human CV champion is `solo_model_xgb` with CV mean normalized Qini **0.40949** and sealed test raw Qini **299.13**. AutoLift is slightly lower on CV mean normalized Qini but higher on sealed test raw/normalized Qini and top-k lift.
 
 **Retrospective held-out best reference:** `RUN-c5e6e86f`
 - Held-out raw Qini: **331.77**
@@ -28,6 +28,8 @@
 | `agentic_tuning_validation_only_ledger.jsonl` | Combined ledger for the patched validation-only tuning specs |
 | `validation_top3_cv_audit.md` | Leakage-clean top-3 CV audit; internal test partition excluded from CV |
 | `validation_top3_cv_leaderboard.csv` | CV leaderboard for the top 3 validation-selected candidates |
+| `honest_human_vs_autolift_cv_comparison.md` | Final honest comparison against the corrected human CV-selected champion |
+| `honest_human_vs_autolift_cv_comparison.csv` | Machine-readable final comparison metrics |
 | `tuned_submission_summary.json` | Quarantined tuned submission metadata; do not use for final claim |
 | `tuned_xai_summary.json` | Quarantined tuned XAI summary for `RUN-2af274da` |
 | `hypotheses.jsonl` | Hypothesis lifecycle records |
@@ -50,11 +52,12 @@ Switching from `rfm_baseline` (27k pre-issue transactions) to `hybrid_safe_seman
 pure demographics (`age_clean` only) to include behavioral signals
 (`days_to_first_redeem`, `points_received_total_30d`).
 
-The AutoLift side is now leakage-clean: top-3 candidates are selected from
-validation evidence and reranked by CV without using the internal test partition.
-The human-baseline comparison is pending because the human notebook workflow is
-being corrected separately. Until that lands, avoid claiming win/loss against the
-human baseline.
+Both sides are now compared under a leakage-clean CV selection boundary. The
+human notebook selects `solo_model_xgb` by 5-fold CV after validation screening.
+AutoLift selects `RUN-f1c30175` by validation-top-3 CV. Human is slightly ahead
+on CV mean normalized Qini (`0.40949` vs `0.396226`), while AutoLift is ahead on
+the sealed test normalized Qini (`0.248455` vs `0.20412`) and raw Qini
+(`309.99` vs `299.13`).
 
 The agent story should emphasize the end-to-end workflow: it generated trials,
 tuned deterministically, detected the held-out leakage risk, reran a
@@ -97,5 +100,6 @@ A patched validation-only rerun selected candidates without held-out metrics:
 The validation-only raw-Qini winner had validation raw Qini `357.375156`.
 A follow-up top-3 CV audit selected `RUN-f1c30175` by mean normalized CV Qini
 without using the internal test partition. Its sealed held-out raw Qini is
-`309.987113`, so the strict selection result is honest but not a human-baseline
-raw-Qini win. `RUN-c5e6e86f` remains only a retrospective held-out-best reference.
+`309.987113`, which is higher than the corrected human CV-selected champion's
+sealed held-out raw Qini (`299.12559`). `RUN-c5e6e86f` remains only a
+retrospective held-out-best reference.
